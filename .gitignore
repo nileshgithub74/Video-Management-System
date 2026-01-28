@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+client/dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Uploads (keep directory structure but ignore files)
+server/uploads/*.mp4
+server/uploads/*.avi
+server/uploads/*.mov
+server/uploads/*.wmv
+!server/uploads/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
+
+# Package lock files (optional - some prefer to keep them)
+# package-lock.json
+# yarn.lock
