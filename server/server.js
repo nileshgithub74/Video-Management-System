@@ -23,8 +23,11 @@ const app = express();
 const server = http.createServer(app);
 // Allowed origins configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173"
-  
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000"
 ];
 
 const corsOptions = {
@@ -60,6 +63,8 @@ app.use(helmet({
       "media-src": ["'self'", "blob:", "*"],
     },
   },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors(corsOptions));
 

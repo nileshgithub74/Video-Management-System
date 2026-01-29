@@ -91,19 +91,42 @@ const updateVideoProgress = async (videoId, progress, message, status = 'process
   }
 };
 
+const mapErrorToMessage = (error) => {
+  const message = error.message || '';
+  console.log('Mapping error:', message);
+
+  if (message.includes('ffprobe exited with code 1')) {
+    return 'The video file is either corrupt, empty, or an unsupported format. Please try uploading a valid MP4 file.';
+  }
+  if (message.includes('ffmpeg exited with code 1')) {
+    return 'Could not process the video frames. The file might be partially uploaded or corrupted.';
+  }
+  if (message.includes('Video file not found')) {
+    return 'The uploaded video file could not be located on the server.';
+  }
+  if (message.includes('GoogleGenerativeAI')) {
+    return 'Safety analysis failed due to an AI service error. Please try again later.';
+  }
+  
+  return 'Video processing failed. Please ensure your file is a valid video format.';
+};
+
 const markVideoAsFailed = async (videoId, error, io, userId) => {
   try {
+    const friendlyMessage = mapErrorToMessage(error);
+    
     await Video.findByIdAndUpdate(videoId, {
       processingStatus: 'failed',
       processingProgress: 0,
-      processingError: error.message
+      processingError: friendlyMessage,
+      technicalError: error.message // Keep technical log in DB for debugging
     });
 
     if (io && userId) {
       io.to(`user-${userId}`).emit('videoProcessed', {
         videoId,
         status: 'failed',
-        error: error.message
+        error: friendlyMessage
       });
     }
   } catch (updateError) {

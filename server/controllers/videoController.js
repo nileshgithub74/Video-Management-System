@@ -172,20 +172,27 @@ export const streamVideoController = async (req, res) => {
       const startByte = parseInt(start, 10);
       const endByte = end ? parseInt(end, 10) : fileSize - 1;
       const chunksize = (endByte - startByte) + 1;
+      
       const file = fs.createReadStream(video.filePath, { start: startByte, end: endByte });
       
-      res.writeHead(206, {
+      res.status(206).set({
         'Content-Range': `bytes ${startByte}-${endByte}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
         'Content-Type': video.mimeType,
+        'Access-Control-Allow-Origin': req.headers.origin || '*',
+        'Access-Control-Allow-Credentials': 'true',
+        'Cross-Origin-Resource-Policy': 'cross-origin'
       });
       
       file.pipe(res);
     } else {
-      res.writeHead(200, {
+      res.status(200).set({
         'Content-Length': fileSize,
         'Content-Type': video.mimeType,
+        'Access-Control-Allow-Origin': req.headers.origin || '*',
+        'Access-Control-Allow-Credentials': 'true',
+        'Cross-Origin-Resource-Policy': 'cross-origin'
       });
       
       fs.createReadStream(video.filePath).pipe(res);

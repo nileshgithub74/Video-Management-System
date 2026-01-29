@@ -185,84 +185,16 @@ const VideoPlayer = () => {
               key={`${id}-${video.updatedAt}`}
               ref={videoRef}
               className="w-full aspect-video"
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
               controls
+              crossOrigin="anonymous"
+              autoPlay
+              src={`${API_URL}/api/videos/${id}/stream?token=${token}`}
             >
-              <source 
-                src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
-                type={video.mimeType}
-              />
               Your browser does not support the video tag.
             </video>
 
-          {/* Video Controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            {/* Progress Bar */}
-            <div 
-              className="w-full h-2 bg-gray-600 rounded-full mb-4 cursor-pointer"
-              onClick={handleSeek}
-            >
-              <div 
-                className="h-full bg-primary-600 rounded-full"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
-              ></div>
-            </div>
-
-            {/* Control Buttons */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={togglePlay}
-                  className="text-white hover:text-primary-400 transition-colors"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-6 h-6" />
-                  ) : (
-                    <Play className="w-6 h-6" />
-                  )}
-                </button>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={toggleMute}
-                    className="text-white hover:text-primary-400 transition-colors"
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-5 h-5" />
-                    ) : (
-                      <Volume2 className="w-5 h-5" />
-                    )}
-                  </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={volume}
-                    onChange={handleVolumeChange}
-                    className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-
-                <span className="text-white text-sm">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              </div>
-
-              <button
-                onClick={toggleFullscreen}
-                className="text-white hover:text-primary-400 transition-colors"
-              >
-                <Maximize className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
-
       {/* Video Information */}
       <div className={`grid grid-cols-1 ${user?.role !== 'viewer' ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Main Info */}
