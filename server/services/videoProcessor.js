@@ -16,63 +16,23 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
  */
 export async function analyzeFrame(imagePath) {
   try {
-    console.log(`🔍 Starting analysis for frame: ${path.basename(imagePath)}`);
-    
     if (!fs.existsSync(imagePath)) {
       throw new Error(`Frame file not found: ${imagePath}`);
     }
 
-    // TEMPORARY: For testing, let's see what happens without AI
-    const frameNumber = path.basename(imagePath);
-    console.log(`🧪 TESTING MODE: Analyzing ${frameNumber}`);
-    
-    // For testing: Mark most frames as SAFE, only flag frame-1.jpg for testing
-    if (frameNumber.includes('frame-1')) {
-      console.log(`🚨 TEST: Flagging ${frameNumber} for testing`);
-      return 'FLAGGED';
-    } else {
-      console.log(`✅ TEST: Marking ${frameNumber} as SAFE`);
-      return 'SAFE';
-    }
-
-    /* ORIGINAL AI CODE - COMMENTED FOR TESTING
     const image = fs.readFileSync(imagePath);
-    console.log(`📁 Frame file size: ${image.length} bytes`);
 
-    console.log(`🤖 Sending frame to Gemini AI...`);
     const result = await model.generateContent([
-      `You are a content moderator. Analyze this image and ONLY flag content that is CLEARLY and OBVIOUSLY harmful.
+      `Analyze this image for inappropriate content.
 
-      ONLY FLAG if the image contains:
-      - Explicit nudity (naked bodies, genitals visible)
-      - Sexual acts or explicit sexual content
-      - Pornographic content
-      - Murder or killing scenes
-      - Knives being used to harm people
-      - Blood and gore (significant amounts)
-      - Graphic violence with injury
+      ONLY flag if you clearly see:
+      - Nudity or sexual content
+      - Violence with blood
+      - Illegal drug use
 
-      ALWAYS MARK AS SAFE:
-      - Normal people in regular clothes
-      - Families, children, everyday activities
-      - Sports, fitness, dancing, entertainment
-      - Food, cooking, kitchen knives (cooking context)
-      - Movies, TV shows, cartoons, animations
-      - Educational content, presentations, meetings
-      - Nature, animals, landscapes
-      - Music, concerts, performances
-      - News, documentaries
-      - Art, paintings, sculptures
-      - Technology, computers, gadgets
-      - Travel, tourism, buildings
-      - Shopping, fashion, modeling (non-explicit)
-      - Medical content (educational context)
-      - Swimwear at beaches/pools
-      - Any content that is not explicitly harmful
+      For everything else (normal people, activities, objects), respond: SAFE
 
-      Be VERY LENIENT. Only flag content that would be illegal or extremely inappropriate. When in doubt, mark as SAFE.
-
-      Respond with exactly one word: "FLAGGED" only if clearly harmful, or "SAFE" for everything else.`,
+      Respond with exactly one word: FLAGGED or SAFE`,
       {
         inlineData: {
           data: image.toString("base64"),
@@ -82,29 +42,21 @@ export async function analyzeFrame(imagePath) {
     ]);
 
     const verdict = result.response.text().trim().toUpperCase();
-    console.log(`🎯 Raw AI Response: "${verdict}"`);
-    console.log(`📝 Response length: ${verdict.length} characters`);
     
-    // Check what the AI actually returned
-    if (verdict.includes('FLAGGED')) {
-      console.log(`🚨 Frame FLAGGED by AI: ${path.basename(imagePath)}`);
-      return 'FLAGGED';
-    } else if (verdict.includes('SAFE')) {
-      console.log(`✅ Frame marked SAFE by AI: ${path.basename(imagePath)}`);
-      return 'SAFE';
-    } else {
-      console.log(`⚠️  Unexpected AI response: "${verdict}" - defaulting to SAFE`);
-      return 'SAFE';
-    }
-    */
+    // Simple check - if response contains FLAGGED, flag it
+    const isFlagged = verdict.includes('FLAGGED');
+    
+    return isFlagged ? 'FLAGGED' : 'SAFE';
     
   } catch (error) {
-    console.error(`❌ Frame analysis failed for ${imagePath}:`);
-    console.error(`   Error type: ${error.name}`);
-    console.error(`   Error message: ${error.message}`);
+    console.error(`Frame analysis error:`, error.message);
     
-    // Default to SAFE on any error
-    console.error(`✅ Error - defaulting to SAFE`);
+    // If quota exceeded, flag for manual review
+    if (error.message.includes('quota') || error.message.includes('429')) {
+      return 'FLAGGED';
+    }
+    
+    // For other errors, default to SAFE
     return 'SAFE';
   }
 }
@@ -149,17 +101,13 @@ export async function analyzeVideoSafety(frames) {
     } catch (error) {
       console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
       results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
-      // Don't count errors as flagged
     }
   }
 
-  // Video is flagged only if MORE THAN 50% of frames are flagged (very lenient)
+  // Video is flagged only if MORE THAN 50% of frames are flagged
   const flaggedPercentage = (flaggedCount / totalFrames) * 100;
   const finalStatus = flaggedPercentage > 50 ? "flagged" : "safe";
   const sensitivityScore = Math.round(flaggedPercentage);
-  
-  console.log(`📊 Video Analysis: ${flaggedCount}/${totalFrames} frames flagged (${flaggedPercentage.toFixed(1)}%)`);
-  console.log(`🎯 Final Status: ${finalStatus.toUpperCase()} (threshold: >50% flagged frames)`);
   
   return {
     status: finalStatus,
