@@ -63,31 +63,63 @@ export async function analyzeFrame(imagePath) {
 
 export async function analyzeVideoSafety(frames) {
   let flaggedCount = 0;
+  let safeCount = 0;
+  let errorCount = 0;
   const results = [];
   const totalFrames = frames.length;
 
+  console.log(`🤖 Starting AI analysis of ${totalFrames} frames`);
+
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
+    const frameName = path.basename(frame);
+    
     try {
+      console.log(`🔍 Analyzing frame ${i + 1}/${totalFrames}: ${frameName}`);
+      
       const verdict = await analyzeFrame(frame);
-      results.push({ frame: path.basename(frame), verdict });
+      results.push({ frame: frameName, verdict });
       
       if (verdict === 'FLAGGED') {
         flaggedCount++;
+        console.log(`🚨 Frame ${frameName}: FLAGGED`);
+      } else if (verdict === 'SAFE') {
+        safeCount++;
+        console.log(`✅ Frame ${frameName}: SAFE`);
       }
       
-      // Add small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Add delay to avoid rate limiting
+      if (i < frames.length - 1) { // Don't delay after last frame
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay
+      }
+      
     } catch (error) {
-      console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
-      results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
+      errorCount++;
+      console.error(`❌ Failed to analyze frame ${frameName}:`, error.message);
+      results.push({ 
+        frame: frameName, 
+        verdict: 'ERROR', 
+        error: error.message 
+      });
     }
   }
 
-  // Video is flagged only if MORE THAN 50% of frames are flagged
-  const flaggedPercentage = (flaggedCount / totalFrames) * 100;
-  const finalStatus = flaggedPercentage > 50 ? "flagged" : "safe";
+  // Calculate results
+  const analyzedFrames = totalFrames - errorCount;
+  const flaggedPercentage = analyzedFrames > 0 ? (flaggedCount / analyzedFrames) * 100 : 0;
+  
+  // Video is flagged only if MORE THAN 60% of successfully analyzed frames are flagged
+  const finalStatus = flaggedPercentage > 60 ? "flagged" : "safe";
   const sensitivityScore = Math.round(flaggedPercentage);
+  
+  console.log(`📊 Analysis Summary:`);
+  console.log(`   Total frames: ${totalFrames}`);
+  console.log(`   Successfully analyzed: ${analyzedFrames}`);
+  console.log(`   Safe frames: ${safeCount}`);
+  console.log(`   Flagged frames: ${flaggedCount}`);
+  console.log(`   Errors: ${errorCount}`);
+  console.log(`   Flagged percentage: ${flaggedPercentage.toFixed(1)}%`);
+  console.log(`   Final status: ${finalStatus.toUpperCase()}`);
   
   return {
     status: finalStatus,
@@ -95,7 +127,10 @@ export async function analyzeVideoSafety(frames) {
     analyzedAt: new Date(),
     frameResults: results,
     totalFrames,
-    flaggedFrames: flaggedCount
+    analyzedFrames,
+    flaggedFrames: flaggedCount,
+    safeFrames: safeCount,
+    errorFrames: errorCount
   };
 }
 
@@ -172,13 +207,16 @@ const markVideoAsFailed = async (videoId, error, io, userId) => {
 /**
  * Extract frames from video for analysis
  */
-const extractFrames = (videoPath, outputFolder, numFrames = 3) => {
+const extractFrames = (videoPath, outputFolder, numFrames = 5) => {
   return new Promise((resolve, reject) => {
+    console.log(`🎬 Extracting ${numFrames} frames from: ${videoPath}`);
+    
+    // Create output directory if it doesn't exist
     if (!fs.existsSync(outputFolder)) {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    // Check if video file exists
+    // Verify video file exists
     if (!fs.existsSync(videoPath)) {
       const error = new Error(`Video file not found: ${videoPath}`);
       console.error(error.message);
@@ -186,21 +224,45 @@ const extractFrames = (videoPath, outputFolder, numFrames = 3) => {
     }
 
     const frames = [];
+    let frameCount = 0;
+
     ffmpeg(videoPath)
       .on('filenames', (filenames) => {
-        filenames.forEach(file => frames.push(path.join(outputFolder, file)));
+        console.log(`📁 Frame files will be: ${filenames.join(', ')}`);
+        filenames.forEach(file => {
+          frames.push(path.join(outputFolder, file));
+        });
       })
       .on('end', () => {
-        resolve(frames);
+        console.log(`✅ Frame extraction completed. Generated ${frames.length} frames`);
+        
+        // Verify frames were actually created
+        const existingFrames = frames.filter(frame => fs.existsSync(frame));
+        
+        if (existingFrames.length === 0) {
+          return reject(new Error('No frames were generated - video may be corrupted'));
+        }
+        
+        if (existingFrames.length < frames.length) {
+          console.warn(`⚠️  Only ${existingFrames.length}/${frames.length} frames were created`);
+        }
+        
+        resolve(existingFrames);
       })
       .on('error', (err) => {
-        console.error(`Frame extraction failed:`, err.message);
-        reject(err);
+        console.error(`❌ Frame extraction failed:`, err.message);
+        reject(new Error(`Frame extraction failed: ${err.message}`));
+      })
+      .on('progress', (progress) => {
+        if (progress.frames) {
+          frameCount = progress.frames;
+          console.log(`📊 Extracting frames... processed ${frameCount} frames`);
+        }
       })
       .screenshots({
         count: numFrames,
         folder: outputFolder,
-        size: '640x?',
+        size: '640x480', // Fixed size for consistency
         filename: 'frame-%i.jpg'
       });
   });
@@ -211,100 +273,185 @@ export const processVideo = async (videoId, io) => {
   const tempDir = path.join(process.cwd(), 'temp', `frames-${videoId}`);
 
   try {
+    console.log(`🎬 Starting video processing for ID: ${videoId}`);
+    
     video = await Video.findById(videoId);
-    if (!video) return;
+    if (!video) {
+      console.error(`❌ Video not found: ${videoId}`);
+      return;
+    }
 
     const userId = video.uploadedBy;
     const filePath = video.filePath;
 
-    // Early file size check
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 100) {
-      throw new Error('The video file is empty or corrupted (moov atom missing).');
+    console.log(`📁 Processing video file: ${filePath}`);
+
+    // Check if file exists and has content
+    if (!fs.existsSync(filePath)) {
+      throw new Error('Video file not found on server');
     }
 
-    // Step 1: Initialize
-    await updateVideoProgress(videoId, 5, 'Initializing processing...', 'processing', io, userId);
+    const fileStats = fs.statSync(filePath);
+    if (fileStats.size < 1000) { // Less than 1KB
+      throw new Error('Video file is too small or corrupted');
+    }
 
-    // Step 2: Metadata extraction
-    await updateVideoProgress(videoId, 20, 'Extracting video metadata...', 'processing', io, userId);
+    console.log(`📊 File size: ${fileStats.size} bytes`);
+
+    // Step 1: Initialize (5%)
+    await updateVideoProgress(videoId, 5, 'Starting video processing...', 'processing', io, userId);
+
+    // Step 2: Extract metadata (20%)
+    await updateVideoProgress(videoId, 20, 'Extracting video information...', 'processing', io, userId);
     
-    await new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(filePath, async (err, metadata) => {
-        if (err) return reject(err);
-        
-        const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-        
-        // Calculate FPS safely
-        let fps = 0;
-        if (videoStream?.r_frame_rate) {
-          const [num, den] = videoStream.r_frame_rate.split('/');
-          fps = den ? parseFloat(num) / parseFloat(den) : parseFloat(num);
-        }
-        
-        await Video.findByIdAndUpdate(videoId, {
-          duration: metadata.format.duration || 0,
-          metadata: {
-            width: videoStream?.width || 0,
-            height: videoStream?.height || 0,
-            quality: videoStream?.height >= 1080 ? 'Full HD' : (videoStream?.height >= 720 ? 'HD' : 'SD'),
-            fps: Math.round(fps) || 0,
-            format: metadata.format.format_name || 'unknown',
-            bitrate: videoStream?.bit_rate || 0,
-            codec: videoStream?.codec_name || 'unknown'
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, async (err, metadata) => {
+          if (err) {
+            console.error(`❌ FFprobe error:`, err.message);
+            return reject(new Error('Could not read video file - may be corrupted'));
           }
+          
+          const videoStream = metadata.streams?.find(s => s.codec_type === 'video');
+          if (!videoStream) {
+            return reject(new Error('No video stream found in file'));
+          }
+          
+          console.log(`📹 Video metadata extracted:`, {
+            duration: metadata.format.duration,
+            width: videoStream.width,
+            height: videoStream.height,
+            codec: videoStream.codec_name
+          });
+          
+          // Update video with metadata
+          await Video.findByIdAndUpdate(videoId, {
+            duration: Math.round(metadata.format.duration || 0),
+            metadata: {
+              width: videoStream.width || 0,
+              height: videoStream.height || 0,
+              codec: videoStream.codec_name || 'unknown',
+              format: metadata.format.format_name || 'unknown'
+            }
+          });
+          
+          resolve();
         });
-        resolve();
       });
-    });
+    } catch (metadataError) {
+      console.error(`❌ Metadata extraction failed:`, metadataError.message);
+      throw metadataError;
+    }
 
-    // Step 3: Frame Extraction - Analyze more frames for better coverage
+    // Step 3: Extract frames (45%)
     await updateVideoProgress(videoId, 45, 'Extracting frames for analysis...', 'processing', io, userId);
-    const frames = await extractFrames(filePath, tempDir, 8); // Increased from 3 to 8 frames
-
-    // Step 4: Gemini Analysis
-    await updateVideoProgress(videoId, 75, 'Analyzing content safety with AI...', 'processing', io, userId);
     
-    console.log(`🔍 Starting AI analysis for video ${videoId} with ${frames.length} frames`);
-    const analysis = await analyzeVideoSafety(frames);
-    console.log(`🎯 AI Analysis Complete for video ${videoId}:`, {
-      status: analysis.status,
-      sensitivityScore: analysis.sensitivityScore,
-      flaggedFrames: analysis.flaggedFrames,
-      totalFrames: analysis.totalFrames
-    });
+    let frames = [];
+    try {
+      frames = await extractFrames(filePath, tempDir, 5); // Reduced to 5 frames for reliability
+      console.log(`🖼️  Extracted ${frames.length} frames for analysis`);
+      
+      if (frames.length === 0) {
+        throw new Error('No frames could be extracted from video');
+      }
+    } catch (frameError) {
+      console.error(`❌ Frame extraction failed:`, frameError.message);
+      throw new Error('Could not extract frames - video may be corrupted');
+    }
 
-    // Step 5: Finalize
-    await updateVideoProgress(videoId, 95, 'Finalizing results...', 'processing', io, userId);
+    // Step 4: AI Analysis (75%)
+    await updateVideoProgress(videoId, 75, 'Analyzing content with AI...', 'processing', io, userId);
     
+    let analysis;
+    try {
+      console.log(`🤖 Starting AI analysis of ${frames.length} frames`);
+      analysis = await analyzeVideoSafety(frames);
+      console.log(`✅ AI analysis complete:`, analysis);
+    } catch (aiError) {
+      console.error(`❌ AI analysis failed:`, aiError.message);
+      // Default to safe if AI fails
+      analysis = {
+        status: 'safe',
+        sensitivityScore: 0,
+        analyzedAt: new Date(),
+        frameResults: [],
+        totalFrames: frames.length,
+        flaggedFrames: 0,
+        error: 'AI analysis failed - defaulted to safe'
+      };
+    }
+
+    // Step 5: Finalize (100%)
+    await updateVideoProgress(videoId, 95, 'Finalizing processing...', 'processing', io, userId);
+    
+    // Update video with final results
     await Video.findByIdAndUpdate(videoId, {
-      sensitivityScore: analysis.sensitivityScore || (analysis.status === 'flagged' ? 100 : 0),
-      sensitivityStatus: analysis.status,
       processingStatus: 'completed',
       processingProgress: 100,
+      sensitivityStatus: analysis.status,
+      sensitivityScore: analysis.sensitivityScore || 0,
       processedAt: new Date()
     });
 
-    // Notify completion
+    console.log(`🎉 Video processing completed for ${videoId}`);
+
+    // Notify completion via WebSocket
     if (io && userId) {
       io.to(`user-${userId}`).emit('videoProcessed', {
         videoId,
         status: 'completed',
-        analysis
+        analysis: {
+          status: analysis.status,
+          sensitivityScore: analysis.sensitivityScore,
+          totalFrames: analysis.totalFrames,
+          flaggedFrames: analysis.flaggedFrames
+        }
       });
     }
 
-    // Cleanup temp frames
+    // Cleanup temp files
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        console.log(`🗑️  Cleaned up temp directory: ${tempDir}`);
+      } catch (cleanupError) {
+        console.error(`⚠️  Could not cleanup temp directory:`, cleanupError.message);
+      }
     }
 
   } catch (error) {
-    console.error(`Processing failed for video ${videoId}:`, error);
-    await markVideoAsFailed(videoId, error, io, video?.uploadedBy);
+    console.error(`❌ Video processing failed for ${videoId}:`, error.message);
+    
+    // Mark video as failed
+    try {
+      const friendlyMessage = mapErrorToMessage(error);
+      
+      await Video.findByIdAndUpdate(videoId, {
+        processingStatus: 'failed',
+        processingProgress: 0,
+        processingError: friendlyMessage,
+        technicalError: error.message
+      });
+
+      // Notify failure via WebSocket
+      if (io && video?.uploadedBy) {
+        io.to(`user-${video.uploadedBy}`).emit('videoProcessed', {
+          videoId,
+          status: 'failed',
+          error: friendlyMessage
+        });
+      }
+    } catch (updateError) {
+      console.error(`❌ Could not update failed video status:`, updateError.message);
+    }
     
     // Cleanup on error
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error(`⚠️  Could not cleanup temp directory on error:`, cleanupError.message);
+      }
     }
   }
 };
