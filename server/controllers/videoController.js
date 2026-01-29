@@ -142,6 +142,14 @@ export const streamVideoController = async (req, res) => {
     const { range } = req.headers;
     const filter = { _id: id };
     
+    // Set CORS headers early
+    res.set({
+      'Access-Control-Allow-Origin': req.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Access-Control-Allow-Headers': 'Range, Content-Range, Content-Length, Content-Type'
+    });
+    
     if (role === 'viewer') {
       filter.$or = [{ isPublic: true }, { uploadedBy: userId }];
     }
@@ -161,7 +169,8 @@ export const streamVideoController = async (req, res) => {
     }
 
     if (!fs.existsSync(video.filePath)) {
-      return res.status(404).json({ msg: 'Video file not found' });
+      console.error(`Video file not found: ${video.filePath}`);
+      return res.status(404).json({ msg: 'Video file not found on server' });
     }
 
     const stat = fs.statSync(video.filePath);
@@ -179,28 +188,27 @@ export const streamVideoController = async (req, res) => {
         'Content-Range': `bytes ${startByte}-${endByte}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
-        'Content-Type': video.mimeType,
-        'Access-Control-Allow-Origin': req.headers.origin || '*',
-        'Access-Control-Allow-Credentials': 'true',
-        'Cross-Origin-Resource-Policy': 'cross-origin'
+        'Content-Type': video.mimeType || 'video/mp4'
       });
       
       file.pipe(res);
     } else {
       res.status(200).set({
         'Content-Length': fileSize,
-        'Content-Type': video.mimeType,
-        'Access-Control-Allow-Origin': req.headers.origin || '*',
-        'Access-Control-Allow-Credentials': 'true',
-        'Cross-Origin-Resource-Policy': 'cross-origin'
+        'Content-Type': video.mimeType || 'video/mp4',
+        'Accept-Ranges': 'bytes'
       });
       
       fs.createReadStream(video.filePath).pipe(res);
     }
 
-    await Video.findByIdAndUpdate(id, { $inc: { viewCount: 1 } });
+    // Update view count asynchronously
+    Video.findByIdAndUpdate(id, { $inc: { viewCount: 1 } }).catch(err => 
+      console.error('Failed to update view count:', err)
+    );
   } catch (error) {
-    res.status(500).json({ msg: 'Streaming failed' });
+    console.error('Streaming error:', error);
+    res.status(500).json({ msg: 'Streaming failed', error: error.message });
   }
 };
 
@@ -288,5 +296,43 @@ export const rejectVideoController = async (req, res) => {
     res.json({ msg: 'Video rejected successfully', video });
   } catch (error) {
     res.status(500).json({ msg: 'Rejection failed' });
+  }
+};
+
+// Debug endpoint to check video file status
+export const debugVideoController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const video = await Video.findById(id);
+    
+    if (!video) {
+      return res.status(404).json({ msg: 'Video not found' });
+    }
+
+    const fileExists = fs.existsSync(video.filePath);
+    let fileStats = null;
+    
+    if (fileExists) {
+      fileStats = fs.statSync(video.filePath);
+    }
+
+    res.json({
+      video: {
+        id: video._id,
+        title: video.title,
+        processingStatus: video.processingStatus,
+        sensitivityStatus: video.sensitivityStatus,
+        filePath: video.filePath,
+        mimeType: video.mimeType,
+        isPublic: video.isPublic
+      },
+      file: {
+        exists: fileExists,
+        size: fileStats?.size,
+        modified: fileStats?.mtime
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ msg: 'Debug failed', error: error.message });
   }
 };

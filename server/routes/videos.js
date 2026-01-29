@@ -8,7 +8,8 @@ import {
   streamVideoController,
   updateVideoController,
   deleteVideoController,
-  rejectVideoController
+  rejectVideoController,
+  debugVideoController
 } from '../controllers/videoController.js';
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.post('/upload', requireRole(['editor', 'admin']), uploadVideo, uploadVide
 router.get('/', getAllVideosController);
 router.get('/:id', getVideoController);
 router.get('/:id/stream', streamVideoController);
+router.get('/:id/debug', debugVideoController);
 router.put('/:id', requireRole(['editor', 'admin']), updateVideoController);
 router.delete('/:id', requireRole(['editor']), deleteVideoController);
 router.put('/:id/reject', requireRole(['admin']), rejectVideoController);

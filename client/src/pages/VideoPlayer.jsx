@@ -53,21 +53,29 @@ const VideoPlayer = () => {
 
   const fetchVideo = async () => {
     try {
+      console.log('Fetching video with ID:', id);
+      console.log('API URL:', API_URL);
       const response = await axios.get(`${API_URL}/api/videos/${id}`);
       const videoData = response.data.video;
+      console.log('Video data received:', videoData);
       setVideo(videoData);
       
       // Clear error initially if we are re-fetching
       setError(null);
 
       if (videoData.processingStatus !== 'completed') {
+        console.log('Video not completed, status:', videoData.processingStatus);
         setError('Video is still processing. Please try again later.');
       } else if (videoData.sensitivityStatus === 'flagged' && user?.role !== 'admin') {
+        console.log('Video flagged for non-admin user');
         setError('This video has been flagged as unsafe and cannot be watched.');
+      } else {
+        console.log('Video ready for playback');
       }
     } catch (error) {
       console.error('Failed to fetch video:', error);
-      setError(error.response?.data?.message || 'Failed to load video');
+      console.error('Error response:', error.response?.data);
+      setError(error.response?.data?.msg || error.response?.data?.message || 'Failed to load video');
     } finally {
       setLoading(false);
     }
@@ -182,17 +190,44 @@ const VideoPlayer = () => {
       {/* Video Player */}
       <div className="bg-black rounded-lg overflow-hidden">
         <div className="relative group">
+          {video.processingStatus === 'completed' ? (
             <video
-              key={`${id}-${video.updatedAt}`}
               ref={videoRef}
               className="w-full aspect-video"
               controls
-              crossOrigin="anonymous"
-              autoPlay
-              src={`${API_URL}/api/videos/${id}/stream?token=${token}`}
+              crossOrigin="use-credentials"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onError={(e) => {
+                console.error('Video loading error:', e);
+                console.error('Video error details:', e.target.error);
+                setError(`Failed to load video: ${e.target.error?.message || 'Unknown error'}`);
+              }}
+              onLoadStart={() => console.log('Video loading started')}
+              onCanPlay={() => console.log('Video can play')}
+              onLoadedData={() => console.log('Video data loaded')}
             >
+              <source 
+                src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
+                type={video.mimeType || 'video/mp4'}
+                onError={(e) => {
+                  console.error('Source error:', e);
+                  console.log('Stream URL:', `${API_URL}/api/videos/${id}/stream?token=${token}`);
+                }}
+              />
               Your browser does not support the video tag.
             </video>
+          ) : (
+            <div className="w-full aspect-video flex items-center justify-center bg-gray-800 text-white">
+              <div className="text-center">
+                <AlertTriangle className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
+                <p className="text-lg">Video is still processing</p>
+                <p className="text-sm text-gray-300">Please check back later</p>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
