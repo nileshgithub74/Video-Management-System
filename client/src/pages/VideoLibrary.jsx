@@ -15,7 +15,8 @@ import {
   FileVideo,
   Trash2,
   Ban,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
@@ -329,9 +330,34 @@ const VideoLibrary = () => {
             return (
               <div key={video._id} className="card hover:shadow-lg transition-all duration-200">
                 
-                {/* Video Thumbnail Placeholder */}
-                <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                  <FileVideo className="w-12 h-12 text-gray-400" />
+                {/* Video Thumbnail - Show different content based on sensitivity status */}
+                <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
+                  {video.sensitivityStatus === 'flagged' ? (
+                    // Flagged video - show cross banner
+                    <div className="w-full h-full bg-red-100 flex items-center justify-center relative">
+                      <div className="absolute inset-0 bg-red-500 opacity-10"></div>
+                      <div className="text-center z-10">
+                        <X className="w-16 h-16 text-red-500 mx-auto mb-2" />
+                        <p className="text-red-600 font-semibold text-sm">Content Flagged</p>
+                        <p className="text-red-500 text-xs">Inappropriate Content</p>
+                      </div>
+                      {/* Diagonal cross lines */}
+                      <div className="absolute inset-0">
+                        <div className="absolute top-0 left-0 w-full h-0.5 bg-red-500 transform rotate-45 origin-top-left" style={{width: '141.42%'}}></div>
+                        <div className="absolute top-0 right-0 w-full h-0.5 bg-red-500 transform -rotate-45 origin-top-right" style={{width: '141.42%'}}></div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Safe video - show normal thumbnail placeholder
+                    <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileVideo className="w-12 h-12 text-indigo-400 mx-auto mb-2" />
+                        <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 hover:opacity-100 transition-opacity">
+                          <Play className="w-4 h-4 text-white ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Video Info */}

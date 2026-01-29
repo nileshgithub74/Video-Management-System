@@ -14,7 +14,8 @@ import {
   User,
   Tag,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
@@ -183,26 +184,45 @@ const VideoPlayer = () => {
       <div className="bg-black rounded-lg overflow-hidden">
         <div className="relative group">
           {video.processingStatus === 'completed' ? (
-            <video
-              ref={videoRef}
-              className="w-full aspect-video"
-              controls
-              crossOrigin="use-credentials"
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onError={(e) => {
-                console.error('Video loading error:', e);
-                setError(`Failed to load video: ${e.target.error?.message || 'Unknown error'}`);
-              }}
-            >
-              <source 
-                src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
-                type={video.mimeType || 'video/mp4'}
-              />
-              Your browser does not support the video tag.
-            </video>
+            video.sensitivityStatus === 'flagged' && user?.role === 'viewer' ? (
+              // Show cross banner for flagged videos (viewers only)
+              <div className="w-full aspect-video bg-red-100 flex items-center justify-center relative">
+                <div className="absolute inset-0 bg-red-500 opacity-10"></div>
+                <div className="text-center z-10">
+                  <X className="w-24 h-24 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-red-600 font-bold text-xl mb-2">Content Blocked</h3>
+                  <p className="text-red-500 text-sm">This video has been flagged as inappropriate</p>
+                  <p className="text-red-400 text-xs mt-2">Contact an administrator for more information</p>
+                </div>
+                {/* Diagonal cross lines */}
+                <div className="absolute inset-0">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-red-500 transform rotate-45 origin-top-left" style={{width: '141.42%'}}></div>
+                  <div className="absolute top-0 right-0 w-full h-1 bg-red-500 transform -rotate-45 origin-top-right" style={{width: '141.42%'}}></div>
+                </div>
+              </div>
+            ) : (
+              // Show normal video player
+              <video
+                ref={videoRef}
+                className="w-full aspect-video"
+                controls
+                crossOrigin="use-credentials"
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onError={(e) => {
+                  console.error('Video loading error:', e);
+                  setError(`Failed to load video: ${e.target.error?.message || 'Unknown error'}`);
+                }}
+              >
+                <source 
+                  src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
+                  type={video.mimeType || 'video/mp4'}
+                />
+                Your browser does not support the video tag.
+              </video>
+            )
           ) : (
             <div className="w-full aspect-video flex items-center justify-center bg-gray-800 text-white">
               <div className="text-center">
@@ -247,12 +267,12 @@ const VideoPlayer = () => {
                   </div>
                 ) : video.sensitivityStatus === 'flagged' ? (
                   <div className="flex items-center space-x-2">
-                    <div className="flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full">
-                      <AlertTriangle className="w-4 h-4 mr-1" />
+                    <div className="flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full border border-red-200">
+                      <X className="w-4 h-4 mr-1" />
                       <span className="text-sm font-medium">Flagged Content</span>
                     </div>
                     {user?.role === 'admin' && (
-                      <span className="text-xs text-gray-600">(Admin can view)</span>
+                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">(Admin Override Available)</span>
                     )}
                   </div>
                 ) : (
