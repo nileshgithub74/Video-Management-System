@@ -8,9 +8,22 @@ export const uploadVideoController = async (req, res) => {
       return res.status(400).json({ msg: 'No video file provided' });
     }
 
+    console.log('File upload successful:', {
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
+
     const { title, description, tags, category, isPublic } = req.body;
     const { filename, originalname, path, size, mimetype } = req.file;
     const { _id: uploadedBy } = req.user;
+
+    // Verify file exists after upload
+    if (!fs.existsSync(path)) {
+      console.error('Uploaded file not found at path:', path);
+      return res.status(500).json({ msg: 'File upload failed - file not found after upload' });
+    }
 
     const video = new Video({
       title,
@@ -23,18 +36,37 @@ export const uploadVideoController = async (req, res) => {
       uploadedBy,
       tags: tags || [],
       category: category || 'general',
-      isPublic: isPublic || false
+      isPublic: isPublic === 'true' || isPublic === true // Handle string/boolean conversion
     });
 
-    await video.save();
-    processVideo(video._id, req.io);
+    const savedVideo = await video.save();
+    console.log('Video saved to database:', savedVideo._id);
 
-    res.status(201).json({ msg: 'Video uploaded successfully', video });
+    // Start processing
+    processVideo(savedVideo._id, req.io);
+
+    res.status(201).json({ 
+      msg: 'Video uploaded successfully', 
+      video: savedVideo,
+      fileExists: fs.existsSync(path)
+    });
   } catch (error) {
+    console.error('Upload error:', error);
+    
+    // Clean up file on error
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('Cleaned up file after error:', req.file.path);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup file:', cleanupError);
+      }
     }
-    res.status(500).json({ msg: 'Upload failed' });
+    
+    res.status(500).json({ 
+      msg: 'Upload failed', 
+      error: error.message 
+    });
   }
 };
 

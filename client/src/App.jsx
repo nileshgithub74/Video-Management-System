@@ -11,7 +11,6 @@ import Dashboard from './pages/Dashboard';
 import VideoLibrary from './pages/VideoLibrary';
 import VideoUpload from './pages/VideoUpload';
 import VideoPlayer from './pages/VideoPlayer';
-import VideoDebug from './pages/VideoDebug';
 import UserManagement from './pages/UserManagement';
 
 function App() {
@@ -30,7 +29,6 @@ function App() {
                 <Route path="videos" element={<VideoLibrary />} />
                 <Route path="upload" element={<VideoUpload />} />
                 <Route path="video/:id" element={<VideoPlayer />} />
-                <Route path="debug/:id" element={<VideoDebug />} />
                 <Route path="users" element={<UserManagement />} />
               </Route>
             </Routes>
