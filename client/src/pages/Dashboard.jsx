@@ -11,8 +11,11 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  Ban,
+  Eye
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
   ? 'https://video-management-system-jdkv.onrender.com' 
@@ -28,6 +31,7 @@ const Dashboard = () => {
     flaggedVideos: 0
   });
   const [recentVideos, setRecentVideos] = useState([]);
+  const [pendingReviewVideos, setPendingReviewVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,6 +46,12 @@ const Dashboard = () => {
 
       const videos = videosResponse.data.videos;
       setRecentVideos(videos);
+
+      // For admins, fetch videos that might need review (flagged or from other users)
+      if (isAdmin) {
+        const reviewResponse = await axios.get(`${API_URL}/api/videos?sensitivity=flagged&limit=10`);
+        setPendingReviewVideos(reviewResponse.data.videos.filter(v => v.processingStatus !== 'rejected'));
+      }
 
       // Calculate stats
       const totalVideos = videosResponse.data.pagination.total;
@@ -83,6 +93,28 @@ const Dashboard = () => {
         return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Flagged</span>;
       default:
         return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Unknown</span>;
+    }
+  };
+
+  const handleRejectVideo = async (videoId) => {
+    const reason = prompt('Enter rejection reason:');
+    if (!reason) return;
+
+    try {
+      await axios.put(`${API_URL}/api/videos/${videoId}/reject`, { reason });
+      
+      // Update local state
+      setPendingReviewVideos(prev => prev.filter(video => video._id !== videoId));
+      setRecentVideos(prev => prev.map(video => 
+        video._id === videoId 
+          ? { ...video, processingStatus: 'rejected', rejectionReason: reason }
+          : video
+      ));
+      
+      toast.success('Video rejected successfully');
+    } catch (error) {
+      console.error('Failed to reject video:', error);
+      toast.error('Failed to reject video: ' + (error.response?.data?.msg || error.message));
     }
   };
 
@@ -198,6 +230,57 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Admin Video Review Section */}
+      {isAdmin && pendingReviewVideos.length > 0 && (
+        <div className="card">
+          <div className="flex-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Videos Requiring Review</h2>
+            <Link
+              to="/videos?sensitivity=flagged"
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              View all flagged
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {pendingReviewVideos.map((video) => (
+              <div key={video._id} className="flex items-center justify-between p-4 border border-orange-200 bg-orange-50 rounded-lg">
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-900 text-truncate">{video.title}</h3>
+                    <p className="text-sm text-gray-600">
+                      Uploaded by {video.uploadedBy?.username || 'Unknown'} on {new Date(video.createdAt).toLocaleDateString()}
+                    </p>
+                    {video.description && (
+                      <p className="text-sm text-gray-500 text-truncate mt-1">{video.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3 flex-shrink-0">
+                  {getSensitivityBadge(video.sensitivityStatus)}
+                  <Link
+                    to={`/video/${video._id}`}
+                    className="text-blue-600 hover:text-blue-700 p-1"
+                    title="Review Video"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
+                  <button
+                    onClick={() => handleRejectVideo(video._id)}
+                    className="text-red-600 hover:text-red-700 p-1"
+                    title="Reject Video"
+                  >
+                    <Ban className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Videos */}
       <div className="card">
         <div className="flex-between mb-6">
@@ -265,6 +348,15 @@ const Dashboard = () => {
                       >
                         Watch
                       </Link>
+                    )}
+                    {isAdmin && video.processingStatus !== 'rejected' && (
+                      <button
+                        onClick={() => handleRejectVideo(video._id)}
+                        className="text-red-600 hover:text-red-700 p-1"
+                        title="Reject Video"
+                      >
+                        <Ban className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
