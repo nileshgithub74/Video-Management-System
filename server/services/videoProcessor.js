@@ -170,15 +170,24 @@ export const processVideo = async (videoId, io) => {
         if (err) return reject(err);
         
         const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+        
+        // Calculate FPS safely
+        let fps = 0;
+        if (videoStream?.r_frame_rate) {
+          const [num, den] = videoStream.r_frame_rate.split('/');
+          fps = den ? parseFloat(num) / parseFloat(den) : parseFloat(num);
+        }
+        
         await Video.findByIdAndUpdate(videoId, {
-          duration: metadata.format.duration,
-          fileSize: metadata.format.size,
+          duration: metadata.format.duration || 0,
           metadata: {
-            width: videoStream?.width,
-            height: videoStream?.height,
+            width: videoStream?.width || 0,
+            height: videoStream?.height || 0,
             quality: videoStream?.height >= 1080 ? 'Full HD' : (videoStream?.height >= 720 ? 'HD' : 'SD'),
-            fps: eval(videoStream?.r_frame_rate),
-            format: metadata.format.format_name
+            fps: Math.round(fps) || 0,
+            format: metadata.format.format_name || 'unknown',
+            bitrate: videoStream?.bit_rate || 0,
+            codec: videoStream?.codec_name || 'unknown'
           }
         });
         resolve();

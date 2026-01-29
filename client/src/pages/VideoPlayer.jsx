@@ -23,7 +23,7 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD
 const VideoPlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const videoRef = useRef(null);
   
   const [video, setVideo] = useState(null);
@@ -246,9 +246,9 @@ const VideoPlayer = () => {
       </div>
 
       {/* Video Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${user?.role !== 'viewer' ? 'lg:grid-cols-3' : ''} gap-6`}>
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${user?.role !== 'viewer' ? 'lg:col-span-2' : ''} space-y-6`}>
           <div className="card">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -297,73 +297,81 @@ const VideoPlayer = () => {
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Video Details */}
-          <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">Video Details</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Duration:</span>
-                <span className="font-medium">{formatTime(video.duration || 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">File Size:</span>
-                <span className="font-medium">{formatFileSize(video.fileSize)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Category:</span>
-                <span className="font-medium capitalize">{video.category}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Format:</span>
-                <span className="font-medium">{video.mimeType}</span>
-              </div>
-              {video.metadata && (
-                <>
-                  {video.metadata.width && video.metadata.height && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Resolution:</span>
-                      <span className="font-medium">
-                        {video.metadata.width} × {video.metadata.height}
-                      </span>
-                    </div>
-                  )}
-                  {video.metadata.fps && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Frame Rate:</span>
-                      <span className="font-medium">{Math.round(video.metadata.fps)} fps</span>
-                    </div>
-                  )}
-                </>
-              )}
-              {video.sensitivityScore !== undefined && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Safety Score:</span>
-                  <span className="font-medium">{video.sensitivityScore}/100</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tags */}
-          {video.tags && video.tags.length > 0 && (
+        {/* Sidebar - Only show for non-viewers */}
+        {user?.role !== 'viewer' && (
+          <div className="space-y-6">
+            {/* Video Details */}
             <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-4">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {video.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 text-sm rounded-full"
-                  >
-                    <Tag className="w-3 h-3 mr-1" />
-                    {tag}
-                  </span>
-                ))}
+              <h3 className="font-semibold text-gray-900 mb-4">Video Details</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="font-medium">{formatTime(video.duration || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">File Size:</span>
+                  <span className="font-medium">{formatFileSize(video.fileSize)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Category:</span>
+                  <span className="font-medium capitalize">{video.category || 'general'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Format:</span>
+                  <span className="font-medium">{video.mimeType || 'Unknown'}</span>
+                </div>
+                {video.metadata && (
+                  <>
+                    {(video.metadata.width && video.metadata.height) && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Resolution:</span>
+                        <span className="font-medium">
+                          {video.metadata.width} × {video.metadata.height}
+                        </span>
+                      </div>
+                    )}
+                    {video.metadata.fps && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Frame Rate:</span>
+                        <span className="font-medium">{Math.round(video.metadata.fps)} fps</span>
+                      </div>
+                    )}
+                    {video.metadata.quality && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Quality:</span>
+                        <span className="font-medium">{video.metadata.quality}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {(video.sensitivityScore !== undefined && video.sensitivityScore !== null) && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Safety Score:</span>
+                    <span className="font-medium">{video.sensitivityScore}/100</span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Tags */}
+            {video.tags && video.tags.length > 0 && (
+              <div className="card">
+                <h3 className="font-semibold text-gray-900 mb-4">Tags</h3>
+                <div className="flex flex-wrap gap-2">
+                  {video.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 text-sm rounded-full"
+                    >
+                      <Tag className="w-3 h-3 mr-1" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
