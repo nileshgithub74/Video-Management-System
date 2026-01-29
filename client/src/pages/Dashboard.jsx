@@ -14,6 +14,10 @@ import {
   XCircle
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 const Dashboard = () => {
   const { user, isAdmin, isEditor } = useAuth();
   const { videoProgress } = useSocket();
@@ -33,7 +37,7 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const [videosResponse] = await Promise.all([
-        axios.get('/api/videos?limit=5')
+        axios.get(`${API_URL}/api/videos?limit=5`)
       ]);
 
       const videos = videosResponse.data.videos;

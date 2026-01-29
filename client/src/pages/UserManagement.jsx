@@ -12,6 +12,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 const UserManagement = () => {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState([]);
@@ -25,7 +29,7 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/users');
+      const response = await axios.get(`${API_URL}/api/users`);
       setUsers(response.data.users);
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -37,7 +41,7 @@ const UserManagement = () => {
 
   const updateUserRole = async (userId, newRole) => {
     try {
-      await axios.put(`/api/users/${userId}/role`, { role: newRole });
+      await axios.put(`${API_URL}/api/users/${userId}/role`, { role: newRole });
       setUsers(users.map(user => 
         user._id === userId ? { ...user, role: newRole } : user
       ));
@@ -54,7 +58,7 @@ const UserManagement = () => {
     }
 
     try {
-      await axios.put(`/api/users/${userId}/deactivate`);
+      await axios.put(`${API_URL}/api/users/${userId}/deactivate`);
       setUsers(users.map(user => 
         user._id === userId ? { ...user, isActive: false } : user
       ));

@@ -6,6 +6,10 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { Upload, X, Video, FileVideo } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 const VideoUpload = () => {
   const { isEditor } = useAuth();
   const navigate = useNavigate();
@@ -100,7 +104,7 @@ const VideoUpload = () => {
         uploadData.append('tags', JSON.stringify(tags));
       }
 
-      const response = await axios.post('/api/videos/upload', uploadData, {
+      const response = await axios.post(`${API_URL}/api/videos/upload`, uploadData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },

@@ -17,6 +17,10 @@ import {
   Ban
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 const VideoLibrary = () => {
   const { videoProgress } = useSocket();
   const { user } = useAuth();
@@ -44,7 +48,7 @@ const VideoLibrary = () => {
         if (value) params.append(key, value);
       });
 
-      const response = await axios.get(`/api/videos?${params}`);
+      const response = await axios.get(`${API_URL}/api/videos?${params}`);
       setVideos(response.data.videos);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -116,7 +120,7 @@ const VideoLibrary = () => {
     }
 
     try {
-      await axios.delete(`/api/videos/${videoId}`);
+      await axios.delete(`${API_URL}/api/videos/${videoId}`);
       // Remove video from local state
       setVideos(prev => prev.filter(video => video._id !== videoId));
       alert('Video deleted successfully');
@@ -131,7 +135,7 @@ const VideoLibrary = () => {
     if (!reason) return;
 
     try {
-      const response = await axios.put(`/api/videos/${videoId}/reject`, { reason });
+      const response = await axios.put(`${API_URL}/api/videos/${videoId}/reject`, { reason });
       // Update video status in local state
       setVideos(prev => prev.map(video => 
         video._id === videoId 

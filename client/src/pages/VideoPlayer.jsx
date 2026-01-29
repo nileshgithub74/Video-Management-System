@@ -16,6 +16,10 @@ import {
   CheckCircle
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 const VideoPlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -37,7 +41,7 @@ const VideoPlayer = () => {
 
   const fetchVideo = async () => {
     try {
-      const response = await axios.get(`/api/videos/${id}`);
+      const response = await axios.get(`${API_URL}/api/videos/${id}`);
       setVideo(response.data.video);
       
       if (response.data.video.processingStatus !== 'completed') {
@@ -167,10 +171,10 @@ const VideoPlayer = () => {
             onLoadedMetadata={handleLoadedMetadata}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            poster="/api/placeholder-video-thumbnail.jpg"
+            poster={`${API_URL}/api/placeholder-video-thumbnail.jpg`}
           >
             <source 
-              src={`/api/videos/${id}/stream`} 
+              src={`${API_URL}/api/videos/${id}/stream`} 
               type={video.mimeType}
             />
             Your browser does not support the video tag.
