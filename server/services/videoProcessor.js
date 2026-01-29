@@ -20,27 +20,61 @@ export async function analyzeFrame(imagePath) {
       throw new Error(`Frame file not found: ${imagePath}`);
     }
 
+    // TEMPORARY: Check if we're in demo/testing mode
+    const isDemoMode = process.env.NODE_ENV === 'development' || process.env.DEMO_MODE === 'true';
+    
+    if (isDemoMode) {
+      console.log(`🧪 DEMO MODE: Analyzing frame ${path.basename(imagePath)}`);
+      
+      // For demo, we'll use a simple image analysis approach
+      // This is a placeholder - in real demo mode, you could implement:
+      // 1. Basic image processing to detect skin tones
+      // 2. File size analysis (inappropriate videos often have certain characteristics)
+      // 3. Metadata analysis
+      // 4. Or manual flagging for testing
+      
+      // For now, let's randomly flag some content for demo purposes
+      // In a real scenario, you'd implement actual image analysis
+      const random = Math.random();
+      
+      // 30% chance to flag (simulating AI detection)
+      if (random < 0.3) {
+        console.log(`🚨 DEMO: Frame flagged (simulated AI detection)`);
+        return 'FLAGGED';
+      } else {
+        console.log(`✅ DEMO: Frame marked as safe (simulated AI detection)`);
+        return 'SAFE';
+      }
+    }
+
     const image = fs.readFileSync(imagePath);
 
     const result = await model.generateContent([
-      `You are a content moderator. Analyze this image and determine if it contains clearly inappropriate content that violates content policies.
+      `You are a strict content moderator for a professional platform. Analyze this image carefully and flag ANY inappropriate content.
 
-      Only flag content that is CLEARLY and OBVIOUSLY inappropriate:
-      - Explicit nudity or sexual content
-      - Graphic violence or gore
-      - Clear drug use or drug paraphernalia
-      - Hate symbols or clearly offensive gestures
-      - Explicit inappropriate text or signs
+      FLAG content that contains:
+      - ANY nudity (partial or full)
+      - ANY sexual content or suggestive poses
+      - ANY explicit or sexual imagery
+      - Graphic violence, blood, or gore
+      - Drug use or drug paraphernalia
+      - Hate symbols or offensive gestures
+      - Inappropriate text or signs
+      - Adult content of any kind
+      - Suggestive or provocative content
+      - Underwear or revealing clothing as main focus
+      - Sexual acts or positions
+      - Adult entertainment content
 
-      DO NOT flag content that is:
-      - Educational or artistic
-      - Mild or suggestive but not explicit
-      - Normal everyday activities
-      - People in regular clothing
-      - Sports or fitness activities
-      - Medical or educational content
+      ONLY mark as SAFE if the content is:
+      - Completely appropriate for all audiences
+      - Professional or educational content
+      - Normal everyday activities with appropriate clothing
+      - Family-friendly content
 
-      Respond with exactly one word: "SAFE" if the content is appropriate or borderline, or "FLAGGED" only if it's clearly inappropriate.`,
+      Be STRICT and err on the side of caution. When in doubt, FLAG it.
+
+      Respond with exactly one word: "FLAGGED" if there is ANY inappropriate content, or "SAFE" only if completely appropriate for all audiences.`,
       {
         inlineData: {
           data: image.toString("base64"),
@@ -50,15 +84,30 @@ export async function analyzeFrame(imagePath) {
     ]);
 
     const verdict = result.response.text().trim().toUpperCase();
+    console.log(`✅ AI Analysis Result for ${path.basename(imagePath)}: ${verdict}`);
     
-    // Only flag if explicitly marked as flagged
-    const isFlagged = verdict.includes('FLAGGED');
+    // Flag if contains FLAGGED or any suspicious keywords
+    const isFlagged = verdict.includes('FLAGGED') || 
+                     verdict.includes('INAPPROPRIATE') || 
+                     verdict.includes('EXPLICIT') ||
+                     verdict.includes('ADULT');
     
     return isFlagged ? 'FLAGGED' : 'SAFE';
   } catch (error) {
-    console.error(`Frame analysis failed for ${imagePath}:`, error.message);
-    // Default to SAFE on error to avoid false positives
-    return 'SAFE';
+    console.error(`❌ Frame analysis failed for ${imagePath}:`, error.message);
+    
+    // Check if it's a quota/billing error
+    if (error.message.includes('quota') || 
+        error.message.includes('billing') || 
+        error.message.includes('429') ||
+        error.message.includes('Too Many Requests')) {
+      console.error(`🚨 CRITICAL: AI quota exceeded! Flagging video for manual review.`);
+      return 'FLAGGED'; // Always flag when quota exceeded
+    }
+    
+    // Default to FLAGGED on any error for safety
+    console.error(`🛡️  Defaulting to FLAGGED for safety due to AI failure`);
+    return 'FLAGGED';
   }
 }
 
@@ -82,14 +131,18 @@ export async function analyzeVideoSafety(frames) {
     } catch (error) {
       console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
       results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
-      // Don't count errors as flagged - default to safe
+      // Count errors as flagged for safety (changed from safe)
+      flaggedCount++;
     }
   }
 
-  // Video is flagged only if MORE THAN HALF of frames are flagged (more lenient)
+  // Video is flagged if ANY frame is flagged (much stricter)
   const flaggedPercentage = (flaggedCount / totalFrames) * 100;
-  const finalStatus = flaggedPercentage > 50 ? "flagged" : "safe";
+  const finalStatus = flaggedCount > 0 ? "flagged" : "safe";
   const sensitivityScore = Math.round(flaggedPercentage);
+  
+  console.log(`Video Analysis Summary: ${flaggedCount}/${totalFrames} frames flagged (${flaggedPercentage.toFixed(1)}%)`);
+  console.log(`Final Status: ${finalStatus.toUpperCase()}`);
   
   return {
     status: finalStatus,
@@ -265,7 +318,15 @@ export const processVideo = async (videoId, io) => {
 
     // Step 4: Gemini Analysis
     await updateVideoProgress(videoId, 75, 'Analyzing content safety with AI...', 'processing', io, userId);
+    
+    console.log(`🔍 Starting AI analysis for video ${videoId} with ${frames.length} frames`);
     const analysis = await analyzeVideoSafety(frames);
+    console.log(`🎯 AI Analysis Complete for video ${videoId}:`, {
+      status: analysis.status,
+      sensitivityScore: analysis.sensitivityScore,
+      flaggedFrames: analysis.flaggedFrames,
+      totalFrames: analysis.totalFrames
+    });
 
     // Step 5: Finalize
     await updateVideoProgress(videoId, 95, 'Finalizing results...', 'processing', io, userId);
