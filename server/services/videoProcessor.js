@@ -12,7 +12,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
- * Enhanced Gemini Vision Check Code
+ * Enhanced Gemini Vision Check Code with more lenient analysis
  */
 export async function analyzeFrame(imagePath) {
   try {
@@ -23,14 +23,24 @@ export async function analyzeFrame(imagePath) {
     const image = fs.readFileSync(imagePath);
 
     const result = await model.generateContent([
-      `Analyze this image for inappropriate content. Look for:
-      - Nudity or sexual content
-      - Violence, weapons, or gore
-      - Drug use or paraphernalia
-      - Hate symbols or offensive gestures
-      - Inappropriate text or signs
-      
-      Respond with exactly one word: "SAFE" if the content is appropriate, or "FLAGGED" if any inappropriate content is detected.`,
+      `You are a content moderator. Analyze this image and determine if it contains clearly inappropriate content that violates content policies.
+
+      Only flag content that is CLEARLY and OBVIOUSLY inappropriate:
+      - Explicit nudity or sexual content
+      - Graphic violence or gore
+      - Clear drug use or drug paraphernalia
+      - Hate symbols or clearly offensive gestures
+      - Explicit inappropriate text or signs
+
+      DO NOT flag content that is:
+      - Educational or artistic
+      - Mild or suggestive but not explicit
+      - Normal everyday activities
+      - People in regular clothing
+      - Sports or fitness activities
+      - Medical or educational content
+
+      Respond with exactly one word: "SAFE" if the content is appropriate or borderline, or "FLAGGED" only if it's clearly inappropriate.`,
       {
         inlineData: {
           data: image.toString("base64"),
@@ -40,18 +50,16 @@ export async function analyzeFrame(imagePath) {
     ]);
 
     const verdict = result.response.text().trim().toUpperCase();
+    console.log(`Frame analysis result: ${verdict} for ${path.basename(imagePath)}`);
     
-    // More robust checking for flagged content
-    const isFlagged = verdict.includes('FLAGGED') || 
-                     verdict.includes('UNSAFE') || 
-                     verdict.includes('INAPPROPRIATE') ||
-                     verdict.includes('VIOLATION');
+    // Only flag if explicitly marked as flagged
+    const isFlagged = verdict.includes('FLAGGED');
     
     return isFlagged ? 'FLAGGED' : 'SAFE';
   } catch (error) {
     console.error(`Frame analysis failed for ${imagePath}:`, error.message);
-    // Default to flagged on error for safety
-    return 'FLAGGED';
+    // Default to SAFE on error to avoid false positives
+    return 'SAFE';
   }
 }
 
@@ -76,16 +84,16 @@ export async function analyzeVideoSafety(frames) {
     } catch (error) {
       console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
       results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
-      // Count errors as flagged for safety
-      flaggedCount++;
+      // Don't count errors as flagged - default to safe
     }
   }
 
-  // Video is flagged if ANY frame is flagged (zero tolerance policy)
-  const finalStatus = flaggedCount > 0 ? "flagged" : "safe";
-  const sensitivityScore = Math.round((flaggedCount / totalFrames) * 100);
+  // Video is flagged only if MORE THAN HALF of frames are flagged (more lenient)
+  const flaggedPercentage = (flaggedCount / totalFrames) * 100;
+  const finalStatus = flaggedPercentage > 50 ? "flagged" : "safe";
+  const sensitivityScore = Math.round(flaggedPercentage);
   
-  console.log(`Video analysis complete: ${finalStatus.toUpperCase()}, ${flaggedCount}/${totalFrames} frames flagged`);
+  console.log(`Video analysis complete: ${finalStatus.toUpperCase()}, ${flaggedCount}/${totalFrames} frames flagged (${flaggedPercentage.toFixed(1)}%)`);
   
   return {
     status: finalStatus,

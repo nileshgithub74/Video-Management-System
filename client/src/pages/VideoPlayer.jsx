@@ -66,8 +66,8 @@ const VideoPlayer = () => {
       if (videoData.processingStatus !== 'completed') {
         console.log('Video not completed, status:', videoData.processingStatus);
         setError('Video is still processing. Please try again later.');
-      } else if (videoData.sensitivityStatus === 'flagged' && user?.role !== 'admin') {
-        console.log('Video flagged for non-admin user');
+      } else if (videoData.sensitivityStatus === 'flagged' && user?.role === 'viewer') {
+        console.log('Video flagged for viewer');
         setError('This video has been flagged as unsafe and cannot be watched.');
       } else {
         console.log('Video ready for playback');
@@ -262,9 +262,14 @@ const VideoPlayer = () => {
                     <span className="text-sm font-medium">Safe Content</span>
                   </div>
                 ) : video.sensitivityStatus === 'flagged' ? (
-                  <div className="flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full">
-                    <AlertTriangle className="w-4 h-4 mr-1" />
-                    <span className="text-sm font-medium">Flagged Content</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full">
+                      <AlertTriangle className="w-4 h-4 mr-1" />
+                      <span className="text-sm font-medium">Flagged Content</span>
+                    </div>
+                    {user?.role === 'admin' && (
+                      <span className="text-xs text-gray-600">(Admin can view)</span>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full">

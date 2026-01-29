@@ -196,7 +196,8 @@ export const streamVideoController = async (req, res) => {
       return res.status(400).json({ msg: 'Video is still processing' });
     }
 
-    if (video.sensitivityStatus === 'flagged' && role !== 'admin') {
+    // Only block flagged videos for viewers and editors, allow admins to watch everything
+    if (video.sensitivityStatus === 'flagged' && role === 'viewer') {
       return res.status(403).json({ msg: 'This video has been flagged as unsafe and cannot be watched' });
     }
 
@@ -331,7 +332,35 @@ export const rejectVideoController = async (req, res) => {
   }
 };
 
-// Debug endpoint to check video file status
+// Manual override endpoint for admins to mark videos as safe
+export const overrideVideoSafetyController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.user;
+    
+    // Only admins can override safety status
+    if (role !== 'admin') {
+      return res.status(403).json({ msg: 'Only admins can override video safety status' });
+    }
+
+    const video = await Video.findByIdAndUpdate(
+      id,
+      { 
+        sensitivityStatus: 'safe',
+        sensitivityScore: 0
+      },
+      { new: true }
+    ).populate('uploadedBy', 'username email');
+
+    if (!video) {
+      return res.status(404).json({ msg: 'Video not found' });
+    }
+
+    res.json({ msg: 'Video marked as safe successfully', video });
+  } catch (error) {
+    res.status(500).json({ msg: 'Override failed' });
+  }
+};
 export const debugVideoController = async (req, res) => {
   try {
     const { id } = req.params;

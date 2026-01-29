@@ -14,7 +14,8 @@ import {
   Calendar,
   FileVideo,
   Trash2,
-  Ban
+  Ban,
+  Shield
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
@@ -165,6 +166,28 @@ const VideoLibrary = () => {
     } catch (error) {
       console.error('Failed to reject video:', error);
       alert('Failed to reject video: ' + (error.response?.data?.msg || error.message));
+    }
+  };
+
+  const handleOverrideSafety = async (videoId) => {
+    if (!window.confirm('Are you sure you want to mark this video as safe? This will override the AI analysis.')) {
+      return;
+    }
+
+    try {
+      await axios.put(`${API_URL}/api/videos/${videoId}/override-safety`);
+      
+      // Update local state
+      setVideos(prev => prev.map(video => 
+        video._id === videoId 
+          ? { ...video, sensitivityStatus: 'safe', sensitivityScore: 0 }
+          : video
+      ));
+      
+      alert('Video marked as safe successfully');
+    } catch (error) {
+      console.error('Failed to override safety:', error);
+      alert('Failed to override safety: ' + (error.response?.data?.msg || error.message));
     }
   };
 
@@ -396,6 +419,17 @@ const VideoLibrary = () => {
                           title="Reject Video"
                         >
                           <Ban className="w-4 h-4" />
+                        </button>
+                      )}
+                      
+                      {/* Override Safety Button for Admins on Flagged Videos */}
+                      {user?.role === 'admin' && video.sensitivityStatus === 'flagged' && (
+                        <button
+                          onClick={() => handleOverrideSafety(video._id)}
+                          className="text-green-600 hover:text-green-700 p-1"
+                          title="Mark as Safe (Override AI)"
+                        >
+                          <Shield className="w-4 h-4" />
                         </button>
                       )}
                     </div>

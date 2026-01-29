@@ -9,7 +9,8 @@ import {
   updateVideoController,
   deleteVideoController,
   rejectVideoController,
-  debugVideoController
+  debugVideoController,
+  overrideVideoSafetyController
 } from '../controllers/videoController.js';
 
 const router = express.Router();
@@ -20,6 +21,7 @@ router.get('/:id', getVideoController);
 router.get('/:id/stream', streamVideoController);
 router.get('/:id/debug', debugVideoController);
 router.put('/:id', requireRole(['editor', 'admin']), updateVideoController);
+router.put('/:id/override-safety', requireRole(['admin']), overrideVideoSafetyController);
 router.delete('/:id', requireRole(['editor']), deleteVideoController);
 router.put('/:id/reject', requireRole(['admin']), rejectVideoController);
 
