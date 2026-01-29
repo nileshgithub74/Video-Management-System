@@ -12,7 +12,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
- * Basic Gemini Vision Check Code
+ * Enhanced Gemini Vision Check Code
  */
 export async function analyzeFrame(imagePath) {
   try {
@@ -23,7 +23,14 @@ export async function analyzeFrame(imagePath) {
     const image = fs.readFileSync(imagePath);
 
     const result = await model.generateContent([
-      "Is this image unsafe (nudity, violence, drugs, hate)? Reply SAFE or FLAGGED only.",
+      `Analyze this image for inappropriate content. Look for:
+      - Nudity or sexual content
+      - Violence, weapons, or gore
+      - Drug use or paraphernalia
+      - Hate symbols or offensive gestures
+      - Inappropriate text or signs
+      
+      Respond with exactly one word: "SAFE" if the content is appropriate, or "FLAGGED" if any inappropriate content is detected.`,
       {
         inlineData: {
           data: image.toString("base64"),
@@ -32,17 +39,26 @@ export async function analyzeFrame(imagePath) {
       },
     ]);
 
-    const verdict = result.response.text().trim();
-    return verdict;
+    const verdict = result.response.text().trim().toUpperCase();
+    
+    // More robust checking for flagged content
+    const isFlagged = verdict.includes('FLAGGED') || 
+                     verdict.includes('UNSAFE') || 
+                     verdict.includes('INAPPROPRIATE') ||
+                     verdict.includes('VIOLATION');
+    
+    return isFlagged ? 'FLAGGED' : 'SAFE';
   } catch (error) {
     console.error(`Frame analysis failed for ${imagePath}:`, error.message);
-    throw error;
+    // Default to flagged on error for safety
+    return 'FLAGGED';
   }
 }
 
 export async function analyzeVideoSafety(frames) {
-  let flagged = false;
+  let flaggedCount = 0;
   const results = [];
+  const totalFrames = frames.length;
 
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
@@ -50,24 +66,34 @@ export async function analyzeVideoSafety(frames) {
       const verdict = await analyzeFrame(frame);
       results.push({ frame: path.basename(frame), verdict });
       
-      if (verdict.includes("FLAGGED")) {
-        flagged = true;
+      if (verdict === 'FLAGGED') {
+        flaggedCount++;
         console.log(`Flagged content detected in frame: ${path.basename(frame)}`);
       }
+      
+      // Add small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
       results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
+      // Count errors as flagged for safety
+      flaggedCount++;
     }
   }
 
-  const finalStatus = flagged ? "flagged" : "safe";
+  // Video is flagged if ANY frame is flagged (zero tolerance policy)
+  const finalStatus = flaggedCount > 0 ? "flagged" : "safe";
+  const sensitivityScore = Math.round((flaggedCount / totalFrames) * 100);
+  
+  console.log(`Video analysis complete: ${finalStatus.toUpperCase()}, ${flaggedCount}/${totalFrames} frames flagged`);
   
   return {
     status: finalStatus,
+    sensitivityScore,
     analyzedAt: new Date(),
     frameResults: results,
-    totalFrames: frames.length,
-    flaggedFrames: results.filter(r => r.verdict.includes('FLAGGED')).length
+    totalFrames,
+    flaggedFrames: flaggedCount
   };
 }
 
@@ -229,9 +255,9 @@ export const processVideo = async (videoId, io) => {
       });
     });
 
-    // Step 3: Frame Extraction
+    // Step 3: Frame Extraction - Analyze more frames for better coverage
     await updateVideoProgress(videoId, 45, 'Extracting frames for analysis...', 'processing', io, userId);
-    const frames = await extractFrames(filePath, tempDir, 3);
+    const frames = await extractFrames(filePath, tempDir, 8); // Increased from 3 to 8 frames
 
     // Step 4: Gemini Analysis
     await updateVideoProgress(videoId, 75, 'Analyzing content safety with AI...', 'processing', io, userId);
@@ -241,7 +267,7 @@ export const processVideo = async (videoId, io) => {
     await updateVideoProgress(videoId, 95, 'Finalizing results...', 'processing', io, userId);
     
     await Video.findByIdAndUpdate(videoId, {
-      sensitivityScore: analysis.status === 'flagged' ? 100 : 0,
+      sensitivityScore: analysis.sensitivityScore || (analysis.status === 'flagged' ? 100 : 0),
       sensitivityStatus: analysis.status,
       processingStatus: 'completed',
       processingProgress: 100,

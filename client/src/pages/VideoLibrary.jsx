@@ -24,9 +24,6 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD
 const VideoLibrary = () => {
   const { videoProgress } = useSocket();
   const { user } = useAuth();
-  
-  console.log('VideoLibrary component - user:', user);
-  console.log('VideoLibrary component - user role:', user?.role);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({});
@@ -39,8 +36,6 @@ const VideoLibrary = () => {
   });
 
   useEffect(() => {
-    console.log('VideoLibrary - Current user:', user);
-    console.log('VideoLibrary - User role:', user?.role);
     fetchVideos();
   }, [filters]);
 
@@ -178,21 +173,7 @@ const VideoLibrary = () => {
   };
 
   const canRejectVideo = (video) => {
-    const isAdmin = user?.role === 'admin';
-    const isNotRejected = video.processingStatus !== 'rejected';
-    
-    // Debug logging
-    console.log('Admin reject check:', {
-      videoId: video._id,
-      videoTitle: video.title,
-      userRole: user?.role,
-      isAdmin,
-      videoStatus: video.processingStatus,
-      isNotRejected,
-      canReject: isAdmin && isNotRejected
-    });
-    
-    return isAdmin && isNotRejected;
+    return user?.role === 'admin' && video.processingStatus !== 'rejected';
   };
 
   return (
