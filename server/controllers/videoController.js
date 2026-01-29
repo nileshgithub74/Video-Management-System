@@ -162,7 +162,8 @@ export const streamVideoController = async (req, res) => {
     const { id } = req.params;
     const { role, _id: userId } = req.user;
     const { range } = req.headers;
-    const filter = { _id: id };
+    
+    console.log(`🎬 Stream request for video ${id} by ${role} user ${userId}`);
     
     // Set CORS headers early
     res.set({
@@ -172,38 +173,63 @@ export const streamVideoController = async (req, res) => {
       'Access-Control-Allow-Headers': 'Range, Content-Range, Content-Length, Content-Type'
     });
     
-    if (role === 'viewer') {
-      filter.$or = [{ isPublic: true }, { uploadedBy: userId }];
-    }
-
-    const video = await Video.findOne(filter);
-
+    // Find the video
+    const video = await Video.findById(id);
     if (!video) {
+      console.log(`❌ Video not found: ${id}`);
       return res.status(404).json({ msg: 'Video not found' });
     }
 
+    console.log(`📹 Video found: ${video.title}, Status: ${video.processingStatus}, Safety: ${video.sensitivityStatus}`);
+
+    // Check if video processing is complete
     if (video.processingStatus !== 'completed') {
+      console.log(`⏳ Video still processing: ${video.processingStatus}`);
       return res.status(400).json({ msg: 'Video is still processing' });
     }
 
-    // Only block flagged videos for viewers and editors, allow admins to watch everything
-    if (video.sensitivityStatus === 'flagged' && role === 'viewer') {
-      return res.status(403).json({ msg: 'This video has been flagged as unsafe and cannot be watched' });
+    // STRICT ACCESS CONTROL FOR FLAGGED VIDEOS
+    if (video.sensitivityStatus === 'flagged') {
+      if (role === 'admin') {
+        console.log(`🔓 Admin access granted to flagged video`);
+        // Admins can watch flagged videos
+      } else if (role === 'editor' && video.uploadedBy.toString() === userId.toString()) {
+        console.log(`🔓 Editor access granted to own flagged video`);
+        // Editors can watch their own flagged videos
+      } else {
+        console.log(`🚫 Access denied to flagged video for ${role}`);
+        return res.status(403).json({ 
+          msg: 'This video has been flagged as inappropriate and cannot be watched',
+          reason: 'Content flagged by AI safety system'
+        });
+      }
     }
 
+    // Check public/private access
+    if (!video.isPublic && video.uploadedBy.toString() !== userId.toString() && role !== 'admin') {
+      console.log(`🔒 Access denied to private video`);
+      return res.status(403).json({ msg: 'This video is private' });
+    }
+
+    // Check if file exists
     if (!fs.existsSync(video.filePath)) {
-      console.error(`Video file not found: ${video.filePath}`);
+      console.error(`📁 Video file not found: ${video.filePath}`);
       return res.status(404).json({ msg: 'Video file not found on server' });
     }
 
     const stat = fs.statSync(video.filePath);
     const fileSize = stat.size;
+    
+    console.log(`📊 Streaming video: ${fileSize} bytes`);
 
+    // Handle range requests for video seeking
     if (range) {
       const [start, end] = range.replace(/bytes=/, "").split("-");
       const startByte = parseInt(start, 10);
       const endByte = end ? parseInt(end, 10) : fileSize - 1;
       const chunksize = (endByte - startByte) + 1;
+      
+      console.log(`📡 Range request: ${startByte}-${endByte}/${fileSize}`);
       
       const file = fs.createReadStream(video.filePath, { start: startByte, end: endByte });
       
@@ -216,6 +242,7 @@ export const streamVideoController = async (req, res) => {
       
       file.pipe(res);
     } else {
+      // Full file streaming
       res.status(200).set({
         'Content-Length': fileSize,
         'Content-Type': video.mimeType || 'video/mp4',
@@ -225,12 +252,15 @@ export const streamVideoController = async (req, res) => {
       fs.createReadStream(video.filePath).pipe(res);
     }
 
-    // Update view count asynchronously
+    // Update view count asynchronously (only for successful streams)
     Video.findByIdAndUpdate(id, { $inc: { viewCount: 1 } }).catch(err => 
       console.error('Failed to update view count:', err)
     );
+    
+    console.log(`✅ Video stream started successfully`);
+    
   } catch (error) {
-    console.error('Streaming error:', error);
+    console.error('❌ Streaming error:', error);
     res.status(500).json({ msg: 'Streaming failed', error: error.message });
   }
 };
