@@ -44,6 +44,24 @@ const VideoLibrary = () => {
     fetchVideos();
   }, [filters]);
 
+  // Sync real-time socket updates into the local videos state
+  useEffect(() => {
+    if (Object.keys(videoProgress).length > 0) {
+      setVideos(prevVideos => prevVideos.map(video => {
+        const progress = videoProgress[video._id];
+        if (progress) {
+          return {
+            ...video,
+            processingStatus: progress.status || video.processingStatus,
+            sensitivityStatus: progress.analysis?.status || video.sensitivityStatus,
+            processingProgress: progress.progress !== undefined ? progress.progress : video.processingProgress
+          };
+        }
+        return video;
+      }));
+    }
+  }, [videoProgress]);
+
   const fetchVideos = async () => {
     try {
       setLoading(true);

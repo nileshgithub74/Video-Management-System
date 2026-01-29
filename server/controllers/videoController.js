@@ -59,16 +59,22 @@ export const getAllVideosController = async (req, res) => {
     // Role-based filtering
     if (role === 'viewer') {
       filter.$or = [{ isPublic: true }, { uploadedBy: userId }];
-      // Viewers can't see rejected videos
+      // Viewers can't see rejected or flagged videos
       filter.processingStatus = { $ne: 'rejected' };
+      filter.sensitivityStatus = { $ne: 'flagged' };
     } else if (role === 'editor') {
-      // Editors can see their own videos (including rejected ones) and public videos
+      // Editors can see their own videos (including rejected/flagged ones) 
+      // but only safe public videos
       filter.$or = [
         { uploadedBy: userId },
-        { isPublic: true, processingStatus: { $ne: 'rejected' } }
+        { 
+          isPublic: true, 
+          processingStatus: { $ne: 'rejected' },
+          sensitivityStatus: { $ne: 'flagged' }
+        }
       ];
     }
-    // Admins can see all videos including rejected ones
+    // Admins can see all videos including rejected and flagged ones
 
     const videos = await Video.find(filter)
       .populate('uploadedBy', 'username email')
@@ -95,6 +101,20 @@ export const getVideoController = async (req, res) => {
     
     if (role === 'viewer') {
       filter.$or = [{ isPublic: true }, { uploadedBy: userId }];
+      // Viewers can't see rejected or flagged videos
+      filter.processingStatus = { $ne: 'rejected' };
+      filter.sensitivityStatus = { $ne: 'flagged' };
+    } else if (role === 'editor') {
+      // Editors can see their own videos (including rejected/flagged ones) 
+      // but only safe public videos
+      filter.$or = [
+        { uploadedBy: userId },
+        { 
+          isPublic: true, 
+          processingStatus: { $ne: 'rejected' },
+          sensitivityStatus: { $ne: 'flagged' }
+        }
+      ];
     }
 
     const video = await Video.findOne(filter).populate('uploadedBy', 'username email');
@@ -102,6 +122,12 @@ export const getVideoController = async (req, res) => {
     if (!video) {
       return res.status(404).json({ msg: 'Video not found' });
     }
+
+    // Even if found (e.g. for editor who uploaded it), block details if flagged for others??
+    // Actually, following the logic from getAllVideosController:
+    // Editors can see their own flagged videos.
+    // Viewers cannot see any flagged videos.
+    // Admins can see everything.
 
     res.json({ video });
   } catch (error) {
@@ -128,6 +154,10 @@ export const streamVideoController = async (req, res) => {
 
     if (video.processingStatus !== 'completed') {
       return res.status(400).json({ msg: 'Video is still processing' });
+    }
+
+    if (video.sensitivityStatus === 'flagged' && role !== 'admin') {
+      return res.status(403).json({ msg: 'This video has been flagged as unsafe and cannot be watched' });
     }
 
     if (!fs.existsSync(video.filePath)) {

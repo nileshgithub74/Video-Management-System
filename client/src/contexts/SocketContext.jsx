@@ -41,9 +41,15 @@ export const SocketProvider = ({ children }) => {
       });
 
       // Listen for video processing progress
-      newSocket.on('video-progress', (data) => {
+      newSocket.on('videoProgress', (data) => {
+        setVideoProgress(prev => ({
+          ...prev,
+          [data.videoId]: data
+        }));
+      });
 
-        
+      // Listen for video processing completion
+      newSocket.on('videoProcessed', (data) => {
         setVideoProgress(prev => ({
           ...prev,
           [data.videoId]: data
@@ -51,9 +57,9 @@ export const SocketProvider = ({ children }) => {
 
         // Show toast notifications for important updates
         if (data.status === 'completed') {
-          toast.success(`Video "${data.video?.title || 'Unknown'}" processing completed!`);
+          toast.success(`Video processing completed! Status: ${data.analysis?.status || 'Unknown'}`);
         } else if (data.status === 'failed') {
-          toast.error(`Video processing failed: ${data.message}`);
+          toast.error(`Video processing failed: ${data.error || 'Unknown error'}`);
         }
       });
 

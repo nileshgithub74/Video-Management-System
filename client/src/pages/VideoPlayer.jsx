@@ -24,6 +24,7 @@ const VideoPlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const { videoProgress } = useSocket();
   const videoRef = useRef(null);
   
   const [video, setVideo] = useState(null);
@@ -39,13 +40,29 @@ const VideoPlayer = () => {
     fetchVideo();
   }, [id]);
 
+  useEffect(() => {
+    const progress = videoProgress[id];
+    if (progress && progress.status === 'completed') {
+      // Re-fetch or update local state when completed
+      if (video && video.processingStatus !== 'completed') {
+        fetchVideo();
+      }
+    }
+  }, [videoProgress, id]);
+
   const fetchVideo = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/videos/${id}`);
-      setVideo(response.data.video);
+      const videoData = response.data.video;
+      setVideo(videoData);
       
-      if (response.data.video.processingStatus !== 'completed') {
+      // Clear error initially if we are re-fetching
+      setError(null);
+
+      if (videoData.processingStatus !== 'completed') {
         setError('Video is still processing. Please try again later.');
+      } else if (videoData.sensitivityStatus === 'flagged' && user?.role !== 'admin') {
+        setError('This video has been flagged as unsafe and cannot be watched.');
       }
     } catch (error) {
       console.error('Failed to fetch video:', error);
