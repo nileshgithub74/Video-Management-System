@@ -24,6 +24,9 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD
 const VideoLibrary = () => {
   const { videoProgress } = useSocket();
   const { user } = useAuth();
+  
+  console.log('VideoLibrary component - user:', user);
+  console.log('VideoLibrary component - user role:', user?.role);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({});
@@ -36,6 +39,8 @@ const VideoLibrary = () => {
   });
 
   useEffect(() => {
+    console.log('VideoLibrary - Current user:', user);
+    console.log('VideoLibrary - User role:', user?.role);
     fetchVideos();
   }, [filters]);
 
@@ -154,7 +159,21 @@ const VideoLibrary = () => {
   };
 
   const canRejectVideo = (video) => {
-    return user?.role === 'admin' && video.processingStatus !== 'rejected';
+    const isAdmin = user?.role === 'admin';
+    const isNotRejected = video.processingStatus !== 'rejected';
+    
+    // Debug logging
+    console.log('Admin reject check:', {
+      videoId: video._id,
+      videoTitle: video.title,
+      userRole: user?.role,
+      isAdmin,
+      videoStatus: video.processingStatus,
+      isNotRejected,
+      canReject: isAdmin && isNotRejected
+    });
+    
+    return isAdmin && isNotRejected;
   };
 
   return (
@@ -285,6 +304,13 @@ const VideoLibrary = () => {
             
             return (
               <div key={video._id} className="card hover:shadow-lg transition-all duration-200">
+                {/* Debug info */}
+                {user?.role === 'admin' && (
+                  <div className="text-xs text-red-500 mb-2">
+                    DEBUG - Video: {video.title}, Status: {video.processingStatus}, Can Reject: {canRejectVideo(video) ? 'YES' : 'NO'}
+                  </div>
+                )}
+                
                 {/* Video Thumbnail Placeholder */}
                 <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
                   <FileVideo className="w-12 h-12 text-gray-400" />
