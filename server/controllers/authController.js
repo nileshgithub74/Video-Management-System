@@ -48,7 +48,7 @@ export const loginController = async (req, res) => {
     }
 
     const token = generateToken(user._id);
-    res.json({ msg: "Login successful", token, user });
+    res.json({ message: "Login successful", token, user });
   } catch (error) {
     res.status(500).json({ message: "Login failed" });
   }
@@ -60,23 +60,23 @@ export const roleLoginController = async (req, res) => {
 
     const user = await User.findOne({ email, isActive: true });
     if (!user) {
-      return res.status(401).json({ msg: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ msg: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const roleHierarchy = { 'viewer': 1, 'editor': 2, 'admin': 3 };
     if (roleHierarchy[user.role] < roleHierarchy[requiredRole]) {
-      return res.status(403).json({ msg: "Insufficient permissions" });
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
 
     const token = generateToken(user._id);
-    res.json({ msg: "Login successful", token, user });
+    res.json({ message: "Login successful", token, user });
   } catch (error) {
-    res.status(500).json({ msg: "Login failed" });
+    res.status(500).json({ message: "Login failed" });
   }
 };
 
@@ -90,6 +90,6 @@ export const refreshTokenController = async (req, res) => {
     const token = generateToken(_id);
     res.json({ token });
   } catch (error) {
-    res.status(500).json({ msg: "Token refresh failed" });
+    res.status(500).json({ message: "Token refresh failed" });
   }
 };

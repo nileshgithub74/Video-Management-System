@@ -24,10 +24,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false
   },
-  organization: {
-    type: String,
-    required: false
-  },
+ 
   isActive: {
     type: Boolean,
     default: true
