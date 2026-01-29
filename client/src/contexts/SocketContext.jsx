@@ -28,7 +28,7 @@ export const SocketProvider = ({ children }) => {
       );
 
       newSocket.on('connect', () => {
-        console.log('Socket connected:', newSocket.id);
+
         setConnected(true);
         
         // Join user-specific room
@@ -36,13 +36,13 @@ export const SocketProvider = ({ children }) => {
       });
 
       newSocket.on('disconnect', () => {
-        console.log('Socket disconnected');
+
         setConnected(false);
       });
 
       // Listen for video processing progress
       newSocket.on('video-progress', (data) => {
-        console.log('Video progress update:', data);
+
         
         setVideoProgress(prev => ({
           ...prev,
