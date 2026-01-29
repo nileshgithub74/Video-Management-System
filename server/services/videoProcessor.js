@@ -12,33 +12,50 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 async function analyzeFrame(imagePath) {
-  const image = fs.readFileSync(imagePath);
-  const result = await model.generateContent([
-    "Check this image for unsafe content (nudity, violence, drugs, hate). Reply only SAFE or FLAGGED.",
-    {
-      inlineData: {
-        data: image.toString("base64"),
-        mimeType: "image/jpeg",
+  try {
+    const image = fs.readFileSync(imagePath);
+    const result = await model.generateContent([
+      "Analyze this image for inappropriate content. Look specifically for: 1) Nudity (exposed breasts, genitals, buttocks), 2) Sexual activity or suggestive poses, 3) Graphic violence or blood, 4) Drug use, 5) Hate symbols. If you detect any of these, respond 'FLAGGED'. If the image shows normal content like faces, clothed people, everyday activities, respond 'SAFE'. Reply only with 'SAFE' or 'FLAGGED'.",
+      {
+        inlineData: {
+          data: image.toString("base64"),
+          mimeType: "image/jpeg",
+        },
       },
-    },
-  ]);
-  return result.response.text().trim();
+    ]);
+    
+    const response = result.response.text().trim();
+    console.log(`🤖 Raw AI response: "${response}"`);
+    return response;
+    
+  } catch (error) {
+    console.error(`❌ AI analysis failed: ${error.message}`);
+    // If AI fails, default to FLAGGED for safety (opposite of before)
+    return "FLAGGED";
+  }
 }
 
 export async function analyzeVideoSafety(framesDir) {
   const frames = fs.readdirSync(framesDir);
+  console.log(`🎬 Analyzing ${frames.length} frames for safety`);
   
   for (const frame of frames) {
+    console.log(`📸 Analyzing frame: ${frame}`);
     const verdict = await analyzeFrame(path.join(framesDir, frame));
+    console.log(`🔍 AI Response for ${frame}: "${verdict}"`);
+    
     if (verdict.includes("FLAGGED")) {
+      console.log(`⚠️ Video FLAGGED due to frame: ${frame}`);
       return {
         status: "flagged",
         confidence: 0.9,
         analyzedAt: new Date(),
+        flaggedFrame: frame
       };
     }
   }
   
+  console.log(`✅ All frames analyzed - Video marked as SAFE`);
   return {
     status: "safe",
     confidence: 0.9,
