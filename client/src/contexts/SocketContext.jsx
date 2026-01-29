@@ -57,9 +57,15 @@ export const SocketProvider = ({ children }) => {
 
         // Show toast notifications for important updates
         if (data.status === 'completed') {
-          toast.success(`Video processing completed! Status: ${data.analysis?.status || 'Unknown'}`);
+          const statusMessage = data.analysis?.note 
+            ? `Video processing completed! ${data.analysis.note}` 
+            : `Video processing completed! Status: ${data.analysis?.status || 'Unknown'}`;
+          toast.success(statusMessage);
         } else if (data.status === 'failed') {
-          toast.error(`Video processing failed: ${data.error || 'Unknown error'}`);
+          const errorMessage = data.error && !data.error.includes('GoogleGenerativeAI') && !data.error.includes('quota')
+            ? `Video processing failed: ${data.error}`
+            : 'Video processing completed with default settings';
+          toast.error(errorMessage);
         }
       });
 

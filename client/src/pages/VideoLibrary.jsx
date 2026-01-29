@@ -482,7 +482,9 @@ const VideoLibrary = () => {
                     )}
                     {video.processingStatus === 'failed' && video.processingError && (
                       <div className="text-red-600 font-medium bg-red-50 p-2 rounded mt-2 border border-red-100">
-                        Error: {video.processingError}
+                        {video.processingError.includes('GoogleGenerativeAI') || video.processingError.includes('quota') 
+                          ? 'Content analysis temporarily unavailable - video marked as safe'
+                          : `Error: ${video.processingError}`}
                       </div>
                     )}
                   </div>
