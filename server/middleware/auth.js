@@ -4,7 +4,7 @@ import User from '../models/User.js';
 export const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
 
     if (!token) {
       return res.status(401).json({ msg: 'Access token required' });

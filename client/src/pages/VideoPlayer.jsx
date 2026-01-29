@@ -181,21 +181,22 @@ const VideoPlayer = () => {
       {/* Video Player */}
       <div className="bg-black rounded-lg overflow-hidden">
         <div className="relative group">
-          <video
-            ref={videoRef}
-            className="w-full aspect-video"
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            poster={`${API_URL}/api/placeholder-video-thumbnail.jpg`}
-          >
-            <source 
-              src={`${API_URL}/api/videos/${id}/stream`} 
-              type={video.mimeType}
-            />
-            Your browser does not support the video tag.
-          </video>
+            <video
+              key={`${id}-${video.updatedAt}`}
+              ref={videoRef}
+              className="w-full aspect-video"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              controls
+            >
+              <source 
+                src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
+                type={video.mimeType}
+              />
+              Your browser does not support the video tag.
+            </video>
 
           {/* Video Controls */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">

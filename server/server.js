@@ -53,7 +53,14 @@ const io = new SocketIOServer(server, {
 
 connectDB();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "media-src": ["'self'", "blob:", "*"],
+    },
+  },
+}));
 app.use(cors(corsOptions));
 
 const limiter = rateLimit({
