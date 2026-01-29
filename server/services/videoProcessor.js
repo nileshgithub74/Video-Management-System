@@ -9,41 +9,65 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
  * Basic Gemini Vision Check Code
  */
 export async function analyzeFrame(imagePath) {
-  const image = fs.readFileSync(imagePath);
+  try {
+    if (!fs.existsSync(imagePath)) {
+      throw new Error(`Frame file not found: ${imagePath}`);
+    }
 
-  const result = await model.generateContent([
-    "Is this image unsafe (nudity, violence, drugs, hate)? Reply SAFE or FLAGGED only.",
-    {
-      inlineData: {
-        data: image.toString("base64"),
-        mimeType: "image/jpeg",
+    const image = fs.readFileSync(imagePath);
+
+    const result = await model.generateContent([
+      "Is this image unsafe (nudity, violence, drugs, hate)? Reply SAFE or FLAGGED only.",
+      {
+        inlineData: {
+          data: image.toString("base64"),
+          mimeType: "image/jpeg",
+        },
       },
-    },
-  ]);
+    ]);
 
-  return result.response.text().trim();
+    const verdict = result.response.text().trim();
+    return verdict;
+  } catch (error) {
+    console.error(`Frame analysis failed for ${imagePath}:`, error.message);
+    throw error;
+  }
 }
 
 export async function analyzeVideoSafety(frames) {
   let flagged = false;
+  const results = [];
 
-  for (const frame of frames) {
-    const verdict = await analyzeFrame(frame);
-    if (verdict.includes("FLAGGED")) {
-      flagged = true;
-      break;
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+    try {
+      const verdict = await analyzeFrame(frame);
+      results.push({ frame: path.basename(frame), verdict });
+      
+      if (verdict.includes("FLAGGED")) {
+        flagged = true;
+        console.log(`Flagged content detected in frame: ${path.basename(frame)}`);
+      }
+    } catch (error) {
+      console.error(`Failed to analyze frame ${path.basename(frame)}:`, error.message);
+      results.push({ frame: path.basename(frame), verdict: 'ERROR', error: error.message });
     }
   }
 
+  const finalStatus = flagged ? "flagged" : "safe";
+  
   return {
-    status: flagged ? "flagged" : "safe",
+    status: finalStatus,
     analyzedAt: new Date(),
+    frameResults: results,
+    totalFrames: frames.length,
+    flaggedFrames: results.filter(r => r.verdict.includes('FLAGGED')).length
   };
 }
 
@@ -96,13 +120,25 @@ const extractFrames = (videoPath, outputFolder, numFrames = 3) => {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
+    // Check if video file exists
+    if (!fs.existsSync(videoPath)) {
+      const error = new Error(`Video file not found: ${videoPath}`);
+      console.error(error.message);
+      return reject(error);
+    }
+
     const frames = [];
     ffmpeg(videoPath)
       .on('filenames', (filenames) => {
         filenames.forEach(file => frames.push(path.join(outputFolder, file)));
       })
-      .on('end', () => resolve(frames))
-      .on('error', (err) => reject(err))
+      .on('end', () => {
+        resolve(frames);
+      })
+      .on('error', (err) => {
+        console.error(`Frame extraction failed:`, err.message);
+        reject(err);
+      })
       .screenshots({
         count: numFrames,
         folder: outputFolder,
