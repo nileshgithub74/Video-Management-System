@@ -323,12 +323,6 @@ const VideoLibrary = () => {
             
             return (
               <div key={video._id} className="card hover:shadow-lg transition-all duration-200">
-                {/* Debug info */}
-                {user?.role === 'admin' && (
-                  <div className="text-xs text-red-500 mb-2">
-                    DEBUG - Video: {video.title}, Status: {video.processingStatus}, Can Reject: {canRejectVideo(video) ? 'YES' : 'NO'}
-                  </div>
-                )}
                 
                 {/* Video Thumbnail Placeholder */}
                 <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
