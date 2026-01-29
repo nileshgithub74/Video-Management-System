@@ -53,28 +53,20 @@ const VideoPlayer = () => {
 
   const fetchVideo = async () => {
     try {
-      console.log('Fetching video with ID:', id);
-      console.log('API URL:', API_URL);
       const response = await axios.get(`${API_URL}/api/videos/${id}`);
       const videoData = response.data.video;
-      console.log('Video data received:', videoData);
       setVideo(videoData);
       
       // Clear error initially if we are re-fetching
       setError(null);
 
       if (videoData.processingStatus !== 'completed') {
-        console.log('Video not completed, status:', videoData.processingStatus);
         setError('Video is still processing. Please try again later.');
       } else if (videoData.sensitivityStatus === 'flagged' && user?.role === 'viewer') {
-        console.log('Video flagged for viewer');
         setError('This video has been flagged as unsafe and cannot be watched.');
-      } else {
-        console.log('Video ready for playback');
       }
     } catch (error) {
       console.error('Failed to fetch video:', error);
-      console.error('Error response:', error.response?.data);
       setError(error.response?.data?.msg || error.response?.data?.message || 'Failed to load video');
     } finally {
       setLoading(false);
@@ -202,20 +194,12 @@ const VideoPlayer = () => {
               onPause={() => setIsPlaying(false)}
               onError={(e) => {
                 console.error('Video loading error:', e);
-                console.error('Video error details:', e.target.error);
                 setError(`Failed to load video: ${e.target.error?.message || 'Unknown error'}`);
               }}
-              onLoadStart={() => console.log('Video loading started')}
-              onCanPlay={() => console.log('Video can play')}
-              onLoadedData={() => console.log('Video data loaded')}
             >
               <source 
                 src={`${API_URL}/api/videos/${id}/stream?token=${token}`} 
                 type={video.mimeType || 'video/mp4'}
-                onError={(e) => {
-                  console.error('Source error:', e);
-                  console.log('Stream URL:', `${API_URL}/api/videos/${id}/stream?token=${token}`);
-                }}
               />
               Your browser does not support the video tag.
             </video>

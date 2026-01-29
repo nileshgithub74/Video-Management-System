@@ -9,7 +9,6 @@ import {
   updateVideoController,
   deleteVideoController,
   rejectVideoController,
-  debugVideoController,
   overrideVideoSafetyController
 } from '../controllers/videoController.js';
 
@@ -19,7 +18,6 @@ router.post('/upload', requireRole(['editor', 'admin']), uploadVideo, uploadVide
 router.get('/', getAllVideosController);
 router.get('/:id', getVideoController);
 router.get('/:id/stream', streamVideoController);
-router.get('/:id/debug', debugVideoController);
 router.put('/:id', requireRole(['editor', 'admin']), updateVideoController);
 router.put('/:id/override-safety', requireRole(['admin']), overrideVideoSafetyController);
 router.delete('/:id', requireRole(['editor']), deleteVideoController);

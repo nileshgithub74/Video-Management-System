@@ -361,39 +361,3 @@ export const overrideVideoSafetyController = async (req, res) => {
     res.status(500).json({ msg: 'Override failed' });
   }
 };
-export const debugVideoController = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const video = await Video.findById(id);
-    
-    if (!video) {
-      return res.status(404).json({ msg: 'Video not found' });
-    }
-
-    const fileExists = fs.existsSync(video.filePath);
-    let fileStats = null;
-    
-    if (fileExists) {
-      fileStats = fs.statSync(video.filePath);
-    }
-
-    res.json({
-      video: {
-        id: video._id,
-        title: video.title,
-        processingStatus: video.processingStatus,
-        sensitivityStatus: video.sensitivityStatus,
-        filePath: video.filePath,
-        mimeType: video.mimeType,
-        isPublic: video.isPublic
-      },
-      file: {
-        exists: fileExists,
-        size: fileStats?.size,
-        modified: fileStats?.mtime
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ msg: 'Debug failed', error: error.message });
-  }
-};
