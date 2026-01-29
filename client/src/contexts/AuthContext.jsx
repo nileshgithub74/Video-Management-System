@@ -4,6 +4,10 @@ import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
+  ? 'https://video-management-system-jdkv.onrender.com' 
+  : 'http://localhost:5000');
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -31,7 +35,7 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get('VITE_API_URL/api/auth/me');
+          const response = await axios.get(`${API_URL}/api/auth/me`);
           setUser(response.data.user);
         } catch (error) {
           console.error('Auth check failed:', error);
@@ -46,7 +50,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('VITE_API_URL/api/auth/login', { email, password });
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       const { token: newToken, user: userData } = response.data;
       
       localStorage.setItem('token', newToken);
@@ -64,7 +68,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', userData);
+      const response = await axios.post(`${API_URL}/api/auth/register`, userData);
       const { token: newToken, user: newUser } = response.data;
       
       localStorage.setItem('token', newToken);
@@ -90,7 +94,7 @@ export const AuthProvider = ({ children }) => {
 
   const refreshToken = async () => {
     try {
-      const response = await axios.post('/api/auth/refresh');
+      const response = await axios.post(`${API_URL}/api/auth/refresh`);
       const { token: newToken } = response.data;
       
       localStorage.setItem('token', newToken);
