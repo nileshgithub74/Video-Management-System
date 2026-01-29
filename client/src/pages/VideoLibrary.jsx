@@ -319,7 +319,8 @@ const VideoLibrary = () => {
         <div className="grid-responsive">
           {videos.map((video) => {
             const progress = videoProgress[video._id];
-            const canPlay = video.processingStatus === 'completed';
+            const canPlay = video.processingStatus === 'completed' && 
+                          (video.sensitivityStatus === 'safe' || user?.role === 'admin');
             
             return (
               <div key={video._id} className="card hover:shadow-lg transition-all duration-200">
