@@ -8,10 +8,23 @@ const generateToken = (userId) => {
 
 export const registerController = async (req, res) => {
   try {
+    console.log('Registration attempt:', { 
+      username: req.body.username, 
+      email: req.body.email, 
+      role: req.body.role 
+    });
+
     const { username, email, password, role } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password) {
+      console.log('Missing required fields');
+      return res.status(400).json({ message: "Username, email, and password are required" });
+    }
 
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
+      console.log('User already exists:', existingUser.email);
       return res.status(400).json({ message: "User already exists" });
     }
 
@@ -24,12 +37,26 @@ export const registerController = async (req, res) => {
       role: role || 'viewer',
       organization: req.body.organization
     });
+    
     await user.save();
+    console.log('User created successfully:', user.email);
 
     const token = generateToken(user._id);
-    res.status(201).json({ message: "Registered successfully", token, user });
+    
+    // Remove password from response
+    const userResponse = {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      organization: user.organization,
+      isActive: user.isActive
+    };
+    
+    res.status(201).json({ message: "Registered successfully", token, user: userResponse });
   } catch (error) {
-    res.status(500).json({ message: "Registration failed" });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: "Registration failed", error: error.message });
   }
 };
 

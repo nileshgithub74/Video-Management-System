@@ -4,9 +4,7 @@ import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD 
-  ? 'https://video-management-system-jdkv.onrender.com' 
-  : 'http://localhost:5000');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -78,7 +76,8 @@ export const AuthProvider = ({ children }) => {
       toast.success('Registration successful!');
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed';
+      console.error('Registration error:', error.response?.data || error.message);
+      const message = error.response?.data?.message || error.message || 'Registration failed';
       toast.error(message);
       return { success: false, message };
     }
