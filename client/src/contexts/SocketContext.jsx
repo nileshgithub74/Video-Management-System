@@ -22,9 +22,9 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated && user) {
       // Initialize socket connection
-      const newSocket = io(process.env.NODE_ENV === 'production' 
-        ? window.location.origin 
-        : 'http://localhost:5000'
+      const newSocket = io(import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' 
+        ? 'https://video-management-system-jdkv.onrender.com'
+        : 'http://localhost:5000')
       );
 
       newSocket.on('connect', () => {
