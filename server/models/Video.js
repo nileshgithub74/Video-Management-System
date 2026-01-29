@@ -49,6 +49,12 @@ const videoSchema = new mongoose.Schema({
   rejectionReason: {
     type: String
   },
+  processingError: {
+    type: String
+  },
+  technicalError: {
+    type: String
+  },
   sensitivityStatus: {
     type: String,
     enum: ['unknown', 'safe', 'flagged'],

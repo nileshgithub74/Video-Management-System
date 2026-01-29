@@ -92,23 +92,30 @@ const updateVideoProgress = async (videoId, progress, message, status = 'process
 };
 
 const mapErrorToMessage = (error) => {
-  const message = error.message || '';
+  const message = error.message || String(error) || '';
+  const lowerMessage = message.toLowerCase();
   console.log('Mapping error:', message);
 
-  if (message.includes('ffprobe exited with code 1')) {
-    return 'The video file is either corrupt, empty, or an unsupported format. Please try uploading a valid MP4 file.';
+  if (lowerMessage.includes('moov atom not found') || 
+      lowerMessage.includes('invalid data found') || 
+      lowerMessage.includes('format error') ||
+      lowerMessage.includes('atom not found')) {
+    return 'The video file is corrupt, empty, or was not uploaded completely. Please try re-uploading a healthy MP4 file.';
   }
-  if (message.includes('ffmpeg exited with code 1')) {
-    return 'Could not process the video frames. The file might be partially uploaded or corrupted.';
+  if (lowerMessage.includes('ffprobe') || lowerMessage.includes('exited with code 1')) {
+    return 'The file format is not supported or the video is unreadable. Please ensure you are using a standard MP4 file.';
   }
-  if (message.includes('Video file not found')) {
-    return 'The uploaded video file could not be located on the server.';
+  if (lowerMessage.includes('ffmpeg exited with code 1')) {
+    return 'Analysis failed: Could not extract frames from this video. It may be corrupted.';
   }
-  if (message.includes('GoogleGenerativeAI')) {
-    return 'Safety analysis failed due to an AI service error. Please try again later.';
+  if (lowerMessage.includes('not found') || lowerMessage.includes('no such file')) {
+    return 'The upload was interrupted or the file is missing from the server.';
+  }
+  if (lowerMessage.includes('generative') || lowerMessage.includes('ai')) {
+    return 'AI Safety analysis failed temporarily. The organizers have been notified.';
   }
   
-  return 'Video processing failed. Please ensure your file is a valid video format.';
+  return 'Video processing failed due to an internal error. Please try a different file.';
 };
 
 const markVideoAsFailed = async (videoId, error, io, userId) => {
@@ -181,6 +188,11 @@ export const processVideo = async (videoId, io) => {
 
     const userId = video.uploadedBy;
     const filePath = video.filePath;
+
+    // Early file size check
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 100) {
+      throw new Error('The video file is empty or corrupted (moov atom missing).');
+    }
 
     // Step 1: Initialize
     await updateVideoProgress(videoId, 5, 'Initializing processing...', 'processing', io, userId);

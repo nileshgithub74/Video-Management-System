@@ -54,7 +54,8 @@ const VideoLibrary = () => {
             ...video,
             processingStatus: progress.status || video.processingStatus,
             sensitivityStatus: progress.analysis?.status || video.sensitivityStatus,
-            processingProgress: progress.progress !== undefined ? progress.progress : video.processingProgress
+            processingProgress: progress.progress !== undefined ? progress.progress : video.processingProgress,
+            processingError: progress.error || video.processingError
           };
         }
         return video;
@@ -441,6 +442,11 @@ const VideoLibrary = () => {
                     {video.processingStatus === 'rejected' && video.rejectionReason && (
                       <div className="text-red-600 font-medium bg-red-50 p-2 rounded mt-2">
                         Rejected: {video.rejectionReason}
+                      </div>
+                    )}
+                    {video.processingStatus === 'failed' && video.processingError && (
+                      <div className="text-red-600 font-medium bg-red-50 p-2 rounded mt-2 border border-red-100">
+                        Error: {video.processingError}
                       </div>
                     )}
                   </div>
