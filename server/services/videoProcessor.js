@@ -50,7 +50,6 @@ export async function analyzeFrame(imagePath) {
     ]);
 
     const verdict = result.response.text().trim().toUpperCase();
-    console.log(`Frame analysis result: ${verdict} for ${path.basename(imagePath)}`);
     
     // Only flag if explicitly marked as flagged
     const isFlagged = verdict.includes('FLAGGED');
@@ -76,7 +75,6 @@ export async function analyzeVideoSafety(frames) {
       
       if (verdict === 'FLAGGED') {
         flaggedCount++;
-        console.log(`Flagged content detected in frame: ${path.basename(frame)}`);
       }
       
       // Add small delay to avoid rate limiting
@@ -92,8 +90,6 @@ export async function analyzeVideoSafety(frames) {
   const flaggedPercentage = (flaggedCount / totalFrames) * 100;
   const finalStatus = flaggedPercentage > 50 ? "flagged" : "safe";
   const sensitivityScore = Math.round(flaggedPercentage);
-  
-  console.log(`Video analysis complete: ${finalStatus.toUpperCase()}, ${flaggedCount}/${totalFrames} frames flagged (${flaggedPercentage.toFixed(1)}%)`);
   
   return {
     status: finalStatus,

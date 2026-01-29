@@ -319,12 +319,6 @@ const VideoPlayer = () => {
                     )}
                   </>
                 )}
-                {(video.sensitivityScore !== undefined && video.sensitivityScore !== null) && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Safety Score:</span>
-                    <span className="font-medium">{video.sensitivityScore}/100</span>
-                  </div>
-                )}
               </div>
             </div>
 
