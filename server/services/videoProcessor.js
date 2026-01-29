@@ -60,26 +60,6 @@ export async function analyzeFrame(imagePath) {
     return 'SAFE';
   }
 }
-    
-  } catch (error) {
-    console.error(`❌ Frame analysis failed for ${imagePath}:`);
-    console.error(`   Error type: ${error.name}`);
-    console.error(`   Error message: ${error.message}`);
-    
-    // Check if it's a quota/billing error
-    if (error.message.includes('quota') || 
-        error.message.includes('billing') || 
-        error.message.includes('429') ||
-        error.message.includes('Too Many Requests')) {
-      console.error(`🚨 QUOTA EXCEEDED - flagging for manual review`);
-      return 'FLAGGED';
-    }
-    
-    // Default to SAFE on any technical error
-    console.error(`✅ Technical error - defaulting to SAFE`);
-    return 'SAFE';
-  }
-}
 
 export async function analyzeVideoSafety(frames) {
   let flaggedCount = 0;
