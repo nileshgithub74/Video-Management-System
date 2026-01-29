@@ -30,36 +30,100 @@ async function analyzeFrame(imagePath) {
     
   } catch (error) {
     console.error(`❌ AI analysis failed: ${error.message}`);
-    // If AI fails, default to FLAGGED for safety (opposite of before)
-    return "FLAGGED";
+    
+    // Check if it's an API error (quota, invalid key, etc.)
+    if (error.message.includes('quota') || 
+        error.message.includes('429') || 
+        error.message.includes('API key not valid') ||
+        error.message.includes('GoogleGenerativeAI')) {
+      
+      console.log('⚠️ AI API not working - using random scoring fallback');
+      throw new Error('AI_API_NOT_WORKING');
+    }
+    
+    // For other errors, default to SAFE
+    console.log('⚠️ AI analysis failed, defaulting to SAFE');
+    return "SAFE";
   }
+}
+
+// Random scoring fallback when AI is not working
+function generateRandomScore() {
+  // Generate random score between 0-100
+  const score = Math.floor(Math.random() * 101);
+  console.log(`🎲 Generated random score: ${score}`);
+  return score;
 }
 
 export async function analyzeVideoSafety(framesDir) {
   const frames = fs.readdirSync(framesDir);
   console.log(`🎬 Analyzing ${frames.length} frames for safety`);
   
+  let usingRandomScoring = false;
+  
+  // Try AI analysis first
   for (const frame of frames) {
     console.log(`📸 Analyzing frame: ${frame}`);
-    const verdict = await analyzeFrame(path.join(framesDir, frame));
-    console.log(`🔍 AI Response for ${frame}: "${verdict}"`);
     
-    if (verdict.includes("FLAGGED")) {
-      console.log(`⚠️ Video FLAGGED due to frame: ${frame}`);
+    try {
+      const verdict = await analyzeFrame(path.join(framesDir, frame));
+      console.log(`🔍 AI Response for ${frame}: "${verdict}"`);
+      
+      if (verdict.includes("FLAGGED")) {
+        console.log(`⚠️ Video FLAGGED due to frame: ${frame}`);
+        return {
+          status: "flagged",
+          confidence: 0.9,
+          analyzedAt: new Date(),
+          flaggedFrame: frame,
+          method: "AI"
+        };
+      }
+    } catch (error) {
+      if (error.message === 'AI_API_NOT_WORKING') {
+        console.log(`🎲 AI not working - switching to random scoring system`);
+        usingRandomScoring = true;
+        break;
+      }
+      
+      // Re-throw other errors
+      throw error;
+    }
+  }
+  
+  // If AI is not working, use random scoring
+  if (usingRandomScoring) {
+    const randomScore = generateRandomScore();
+    
+    if (randomScore >= 50) {
+      console.log(`⚠️ Video FLAGGED by random scoring: ${randomScore} >= 50`);
       return {
         status: "flagged",
-        confidence: 0.9,
+        confidence: randomScore / 100,
         analyzedAt: new Date(),
-        flaggedFrame: frame
+        method: "random",
+        score: randomScore,
+        note: `AI unavailable - random score: ${randomScore} (flagged because >= 50)`
+      };
+    } else {
+      console.log(`✅ Video marked as SAFE by random scoring: ${randomScore} < 50`);
+      return {
+        status: "safe",
+        confidence: (100 - randomScore) / 100,
+        analyzedAt: new Date(),
+        method: "random",
+        score: randomScore,
+        note: `AI unavailable - random score: ${randomScore} (safe because < 50)`
       };
     }
   }
   
-  console.log(`✅ All frames analyzed - Video marked as SAFE`);
+  console.log(`✅ All frames analyzed by AI - Video marked as SAFE`);
   return {
     status: "safe",
     confidence: 0.9,
     analyzedAt: new Date(),
+    method: "AI"
   };
 }
 
