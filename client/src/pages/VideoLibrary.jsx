@@ -49,6 +49,8 @@ const VideoLibrary = () => {
       });
 
       const response = await axios.get(`${API_URL}/api/videos?${params}`);
+      console.log('Fetched videos:', response.data.videos);
+      console.log('Current user:', user);
       setVideos(response.data.videos);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -154,7 +156,20 @@ const VideoLibrary = () => {
   };
 
   const canRejectVideo = (video) => {
-    return user?.role === 'admin' && video.processingStatus !== 'rejected';
+    const isAdmin = user?.role === 'admin';
+    const isNotRejected = video.processingStatus !== 'rejected';
+    
+    console.log('canRejectVideo check:', {
+      videoId: video._id,
+      videoTitle: video.title,
+      userRole: user?.role,
+      isAdmin,
+      videoStatus: video.processingStatus,
+      isNotRejected,
+      canReject: isAdmin && isNotRejected
+    });
+    
+    return isAdmin && isNotRejected;
   };
 
   return (
