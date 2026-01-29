@@ -21,7 +21,8 @@ export const registerController = async (req, res) => {
       username, 
       email, 
       password: hashedPassword, 
-      role: role || 'viewer' 
+      role: role || 'viewer',
+      organization: req.body.organization
     });
     await user.save();
 

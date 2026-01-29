@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema({
     enum: ['viewer', 'editor', 'admin'],
     default: 'viewer'
   },
+  organization: {
+    type: String,
+    required: false
+  },
+  organization: {
+    type: String,
+    required: false
+  },
   isActive: {
     type: Boolean,
     default: true
